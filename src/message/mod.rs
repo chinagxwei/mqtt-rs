@@ -7,15 +7,11 @@ pub mod v3;
 
 #[derive(Debug)]
 pub enum MqttMessageKind {
-    // Connect,
     V3(MqttMessageV3),
     V5,
 }
 
 impl MqttMessageKind {
-    // pub fn is_connect(&self) -> bool {
-    //     matches!(self, MqttMessageKind::Connect)
-    // }
     pub fn is_v3(&self) -> bool {
         matches!(self, MqttMessageKind::V3(_))
     }
@@ -29,6 +25,7 @@ impl MqttMessageKind {
         }
     }
 }
+
 
 pub trait MqttMessage {
     fn get_message_type(&self) -> TypeKind;
@@ -74,7 +71,7 @@ pub struct BaseConnect {
     protocol_level: MqttProtocolLevel,
 }
 
-impl BaseConnect{
+impl BaseConnect {
     pub fn get_message_type(&self) -> TypeKind {
         self.msg_type
     }
