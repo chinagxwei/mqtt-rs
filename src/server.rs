@@ -227,12 +227,6 @@ impl Line {
 
     pub async fn accept<F>(&mut self, callback: F) -> bool
         where F: Fn(&MqttProtocolLevel, Option<BaseMessage>) -> Option<MqttMessageKind> {
-        // let base_msg = self.get_message().await;
-        // let res = callback(base_msg);
-
-        // if self.client_id.is_some() {
-        //     println!("client id: {}", self.client_id.as_ref().unwrap());
-        // }
         let msg = self.get_message().await;
 
         if msg.is_some() && msg.as_ref().unwrap().get_message_type() == TypeKind::CONNECT {
