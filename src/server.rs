@@ -15,7 +15,7 @@ use crate::SUBSCRIPT;
 fn handle_level3_1_1(base_msg: BaseMessage) -> Option<MqttMessageKind> {
     match base_msg.get_message_type() {
         TypeKind::CONNECT => {
-            Some(MqttMessageKind::V3(MqttMessageV3::Connect(ConnectMessageBuild::from(base_msg).build())))
+            Some(MqttMessageKind::V3(MqttMessageV3::Connect(ConnectMessage::from(base_msg))))
         }
         // TypeKind::CONNACK => {}
         TypeKind::PUBLISH => {
