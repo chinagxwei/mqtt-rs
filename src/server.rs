@@ -112,6 +112,10 @@ impl Line {
         }
     }
 
+    pub fn get_client_id(&self) -> &ClientID {
+        self.client_id.as_ref().unwrap()
+    }
+
     fn action_receiver(&self) {
         let rec = Arc::clone(&self.receiver);
         let soc = Arc::clone(&self.socket);
@@ -219,9 +223,9 @@ impl Line {
             MqttMessageV3::Subscribe(msg) => {
                 println!("{:?}", msg);
                 if SUBSCRIPT.contain(&msg.topic).await {
-                    SUBSCRIPT.subscript(&msg.topic, self.client_id.as_ref().unwrap().as_ref(), self.get_sender());
+                    SUBSCRIPT.subscript(&msg.topic, self.client_id.as_ref().unwrap(), self.get_sender());
                 } else {
-                    SUBSCRIPT.new_subscript(&msg.topic, self.client_id.as_ref().unwrap().as_ref(), self.get_sender()).await;
+                    SUBSCRIPT.new_subscript(&msg.topic, self.client_id.as_ref().unwrap(), self.get_sender()).await;
                 }
                 println!("broadcast topic len: {}", SUBSCRIPT.len().await);
                 println!("broadcast topic list: {:?}", SUBSCRIPT.topics().await);

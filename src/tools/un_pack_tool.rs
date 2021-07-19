@@ -113,7 +113,7 @@ fn get_remaining_length(data: &[u8]) -> Result<(usize, usize), &'static str> {
 
 pub fn get_remaining_data(data: &[u8]) -> Vec<u8> {
     let (remaining_length, head_bytes) = get_remaining_length(data).unwrap();
-    data.get(head_bytes..(remaining_length + 2)).unwrap().to_vec()
+    data.get(head_bytes..(remaining_length + head_bytes)).unwrap().to_vec()
 }
 
 #[cfg(test)]

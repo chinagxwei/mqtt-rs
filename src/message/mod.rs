@@ -86,8 +86,6 @@ impl From<Vec<u8>> for BaseMessage {
 
 impl From<&[u8]> for BaseMessage {
     fn from(data: &[u8]) -> Self {
-        // let mut r#type = get_type(data);
-        // println!("{:?}", get_type_have_data(data));
         let (mut r#type, _) = get_type_have_data(data);
         let bytes = data.to_vec();
         BaseMessage { msg_type: r#type.take().unwrap(), bytes }

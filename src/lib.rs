@@ -6,6 +6,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use std::collections::HashMap;
 use tokio::sync::mpsc::Sender;
+use crate::server::Line;
 
 pub mod types;
 pub mod hex;
@@ -21,18 +22,12 @@ lazy_static! {
     static ref SUBSCRIPT: Subscript = Subscript::new();
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, Hash)]
 pub struct ClientID(String);
 
-impl AsRef<String> for ClientID {
-    fn as_ref(&self) -> &String {
-        &self.0
-    }
-}
-
-impl AsRef<str> for ClientID {
-    fn as_ref(&self) -> &str {
-        &self.0
+impl AsRef<ClientID> for ClientID {
+    fn as_ref(&self) -> &ClientID {
+        &self
     }
 }
 
@@ -48,15 +43,28 @@ impl From<&str> for ClientID {
     }
 }
 
-impl PartialEq for ClientID{
+impl From<&ClientID> for ClientID {
+    fn from(client: &ClientID) -> Self {
+        client.to_owned()
+    }
+}
+
+impl PartialEq for ClientID {
     fn eq(&self, other: &Self) -> bool {
-        PartialEq::eq(&self.0,&other.0)
+        PartialEq::eq(&self.0, &other.0)
     }
 
     fn ne(&self, other: &Self) -> bool {
-        PartialEq::ne(&self.0,&other.0)
+        PartialEq::ne(&self.0, &other.0)
     }
 }
+
+impl AsRef<ClientID> for Line{
+    fn as_ref(&self) -> &ClientID {
+        self.get_client_id()
+    }
+}
+
 
 #[derive(Debug, Clone)]
 pub enum TopicMessage {
@@ -90,17 +98,17 @@ impl Subscript {
         self.container.lock().await.remove(topic_name.as_ref())
     }
 
-    pub async fn is_subscript<S: AsRef<str>>(&self, topic_name: S, client_id: S) -> bool {
+    pub async fn is_subscript<S: AsRef<str>, SS: AsRef<ClientID>>(&self, topic_name: S, client_id: SS) -> bool {
         self.container.lock().await.get(topic_name.as_ref()).unwrap().contain(client_id)
     }
 
-    pub async fn new_subscript<S: AsRef<str>>(&self, topic_name: S, client_id: S, sender: Sender<TopicMessage>) {
+    pub async fn new_subscript<S: AsRef<str>, SS: AsRef<ClientID>>(&self, topic_name: S, client_id: SS, sender: Sender<TopicMessage>) {
         let mut top = Topic::new(topic_name.as_ref());
         top.subscript(client_id.as_ref(), sender);
         self.add(topic_name.as_ref(), top).await;
     }
 
-    pub fn subscript<S: AsRef<str>>(&self, topic_name: S, client_id: S, sender: Sender<TopicMessage>) {
+    pub fn subscript<S: AsRef<str>, SS: AsRef<ClientID>>(&self, topic_name: S, client_id: SS, sender: Sender<TopicMessage>) {
         match self.container.try_lock() {
             Ok(mut container) => {
                 if let Some(t) = container.get_mut(topic_name.as_ref()) {
@@ -113,11 +121,11 @@ impl Subscript {
         }
     }
 
-    pub async fn unsubscript<S: AsRef<str>>(&self, topic_name: S, client_id: S) {
+    pub async fn unsubscript<S: AsRef<str>, SS: AsRef<ClientID>>(&self, topic_name: S, client_id: SS) {
         self.container.lock().await.get_mut(topic_name.as_ref()).unwrap().unsubscript(client_id);
     }
 
-    pub async fn exit<S: AsRef<str>>(&self, client_id: S) {
+    pub async fn exit<S: AsRef<ClientID>>(&self, client_id: S) {
         for (_, topic) in self.container.lock().await.iter_mut() {
             topic.unsubscript(client_id.as_ref());
         }
@@ -127,7 +135,7 @@ impl Subscript {
         self.container.lock().await.keys().cloned().collect::<Vec<String>>()
     }
 
-    pub async fn clients<S: AsRef<str>>(&self, topic_name: S) -> Vec<String> {
+    pub async fn clients<S: AsRef<str>>(&self, topic_name: S) -> Vec<ClientID> {
         self.container.lock().await.get(topic_name.as_ref()).unwrap().client_id_list()
     }
 
@@ -145,7 +153,7 @@ impl Subscript {
 #[derive(Debug)]
 pub struct Topic {
     name: String,
-    senders: HashMap<String, Sender<TopicMessage>>,
+    senders: HashMap<ClientID, Sender<TopicMessage>>,
 }
 
 impl Topic {
@@ -155,21 +163,21 @@ impl Topic {
 }
 
 impl Topic {
-    pub fn subscript<S: Into<String>>(&mut self, client_id: S, sender: Sender<TopicMessage>) {
+    pub fn subscript<S: Into<ClientID>>(&mut self, client_id: S, sender: Sender<TopicMessage>) {
         let id = client_id.into();
-        println!("subscript client id: {}", &id);
+        println!("subscript client id: {:?}", &id);
         self.senders.insert(id, sender);
     }
 
-    pub fn unsubscript<S: AsRef<str>>(&mut self, client_id: S) -> Option<Sender<TopicMessage>> {
+    pub fn unsubscript<S: AsRef<ClientID>>(&mut self, client_id: S) -> Option<Sender<TopicMessage>> {
         if self.senders.contains_key(client_id.as_ref()) {
             return self.senders.remove(client_id.as_ref());
         }
         None
     }
 
-    pub fn client_id_list(&self) -> Vec<String> {
-        self.senders.keys().cloned().collect::<Vec<String>>()
+    pub fn client_id_list(&self) -> Vec<ClientID> {
+        self.senders.keys().cloned().collect::<Vec<ClientID>>()
     }
 
     pub fn client_len(&self) -> usize {
@@ -182,7 +190,7 @@ impl Topic {
         }
     }
 
-    pub fn contain<S: AsRef<str>>(&self, client_id: S) -> bool {
+    pub fn contain<S: AsRef<ClientID>>(&self, client_id: S) -> bool {
         self.senders.contains_key(client_id.as_ref())
     }
 }
