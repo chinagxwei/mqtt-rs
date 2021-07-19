@@ -132,8 +132,6 @@ impl Topic {
 
     pub async fn broadcast(&self, msg: &TopicMessage) {
         for (_, sender) in self.senders.iter() {
-            // println!("send msg: {:?}", msg.clone());
-            // sender.send(TopicMessage::Content(from_client_id.to_owned(), msg.clone())).await;
             sender.send(msg.clone()).await;
         }
     }
