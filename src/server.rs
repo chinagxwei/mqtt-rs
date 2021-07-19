@@ -226,7 +226,7 @@ impl Line {
     }
 
     pub async fn accept<F>(&mut self, callback: F) -> bool
-        where F: Fn(&MqttProtocolLevel, Option<BaseMessage>) -> Option<MqttMessageKind> {
+        where F: Fn(MqttProtocolLevel, Option<BaseMessage>) -> Option<MqttMessageKind> {
         let msg = self.get_message().await;
 
         if msg.is_some() && msg.as_ref().unwrap().get_message_type() == TypeKind::CONNECT {
@@ -234,87 +234,92 @@ impl Line {
             self.init_protocol(connect.get_protocol_name(), connect.get_protocol_level());
         }
 
-        if let Some(kind) = callback(self.protocol_level.as_ref().unwrap(), msg) {
+        if let Some(kind) = callback(self.protocol_level.unwrap(), msg) {
             println!("accept: {:?}", kind);
 
             if let Some(kind) = kind.get_v3() {
-                match kind {
-                    MqttMessageV3::Connect(msg) => {
-                        self.init(msg);
-                        if let Err(e) = self.socket.lock().await.write_all(ConnackMessage::default().as_bytes()).await {
-                            println!("failed to write to socket; err = {:?}", e);
-                        }
-                    }
-                    MqttMessageV3::Puback(msg) => {
-                        if let Err(e) = self.socket.lock().await.write_all(msg.as_bytes()).await {
-                            println!("failed to write to socket; err = {:?}", e);
-                        }
-                    }
-                    MqttMessageV3::Subscribe(msg) => {
-                        println!("{:?}", msg);
-                        if SUBSCRIPT.contain(&msg.topic).await {
-                            SUBSCRIPT.subscript(&msg.topic, self.client_id.as_ref().unwrap(), self.get_sender());
-                        } else {
-                            SUBSCRIPT.new_subscript(&msg.topic, self.client_id.as_ref().unwrap(), self.get_sender()).await;
-                        }
-                        println!("broadcast topic len: {}", SUBSCRIPT.len().await);
-                        println!("broadcast topic list: {:?}", SUBSCRIPT.topics().await);
-                        println!("broadcast client len: {:?}", SUBSCRIPT.client_len(&msg.topic).await);
-                        println!("broadcast client list: {:?}", SUBSCRIPT.clients(&msg.topic).await);
-                        let sm = SubackMessage::from(msg.clone());
-                        println!("{:?}", sm);
-                        if let Err(e) = self.socket.lock().await.write_all(sm.as_bytes()).await {
-                            println!("failed to write to socket; err = {:?}", e);
-                        }
-                    }
-                    MqttMessageV3::Unsubscribe(msg) => {
-                        println!("topic name: {}", &msg.topic);
-                        if SUBSCRIPT.contain(&msg.topic).await {
-                            if SUBSCRIPT.is_subscript(&msg.topic, self.client_id.as_ref().unwrap()).await {
-                                SUBSCRIPT.unsubscript(&msg.topic, self.client_id.as_ref().unwrap()).await;
-                                if let Err(e) = self.socket.lock().await.write_all(UnsubackMessage::new(msg.message_id).as_bytes()).await {
-                                    println!("failed to write to socket; err = {:?}", e);
-                                }
-                            }
-                        }
-                    }
-                    MqttMessageV3::Publish(msg) => {
-                        println!("{:?}", msg);
-                        let topic_msg = TopicMessage::Content(self.client_id.as_ref().unwrap().to_owned(), msg.clone());
-                        SUBSCRIPT.broadcast(&msg.topic, &topic_msg).await;
-                        if msg.qos == MqttQos::Qos1 {
-                            // let p = PubackMessage::new(pmsg.message_id);
-                            if let Err(e) = self.socket.lock().await.write_all(PubackMessage::new(msg.message_id).as_bytes()).await {
-                                println!("failed to write to socket; err = {:?}", e);
-                            }
-                        }
-                    }
-                    MqttMessageV3::Pingresp(msg) => {
-                        if let Err(e) = self.socket.lock().await.write_all(msg.as_bytes()).await {
-                            println!("failed to write to socket; err = {:?}", e);
-                        }
-                    }
-                    MqttMessageV3::Disconnect(_) => {
-                        println!("client disconnect");
-                        if self.will_flag.unwrap() == MqttWillFlag::Enable {
-                            let msg = PublishMessage::new(
-                                self.will_qos.unwrap(),
-                                MqttDup::Disable,
-                                self.will_retain.unwrap(),
-                                self.will_topic.as_ref().unwrap().to_owned(),
-                                0,
-                                self.will_message.as_ref().unwrap().to_owned(),
-                            );
-                            let topic_msg = TopicMessage::Will(msg);
-                            SUBSCRIPT.broadcast(self.will_topic.as_ref().unwrap(), &topic_msg).await;
-                        }
-                    }
-                    _ => {}
-                }
+                self.handle_v3(kind).await;
             }
             true
         } else {
             false
+        }
+    }
+
+    async fn handle_v3(&mut self, kind: &MqttMessageV3) {
+        match kind {
+            MqttMessageV3::Connect(msg) => {
+                self.init(msg);
+                if let Err(e) = self.socket.lock().await.write_all(ConnackMessage::default().as_bytes()).await {
+                    println!("failed to write to socket; err = {:?}", e);
+                }
+            }
+            MqttMessageV3::Puback(msg) => {
+                if let Err(e) = self.socket.lock().await.write_all(msg.as_bytes()).await {
+                    println!("failed to write to socket; err = {:?}", e);
+                }
+            }
+            MqttMessageV3::Subscribe(msg) => {
+                println!("{:?}", msg);
+                if SUBSCRIPT.contain(&msg.topic).await {
+                    SUBSCRIPT.subscript(&msg.topic, self.client_id.as_ref().unwrap(), self.get_sender());
+                } else {
+                    SUBSCRIPT.new_subscript(&msg.topic, self.client_id.as_ref().unwrap(), self.get_sender()).await;
+                }
+                println!("broadcast topic len: {}", SUBSCRIPT.len().await);
+                println!("broadcast topic list: {:?}", SUBSCRIPT.topics().await);
+                println!("broadcast client len: {:?}", SUBSCRIPT.client_len(&msg.topic).await);
+                println!("broadcast client list: {:?}", SUBSCRIPT.clients(&msg.topic).await);
+                let sm = SubackMessage::from(msg.clone());
+                println!("{:?}", sm);
+                if let Err(e) = self.socket.lock().await.write_all(sm.as_bytes()).await {
+                    println!("failed to write to socket; err = {:?}", e);
+                }
+            }
+            MqttMessageV3::Unsubscribe(msg) => {
+                println!("topic name: {}", &msg.topic);
+                if SUBSCRIPT.contain(&msg.topic).await {
+                    if SUBSCRIPT.is_subscript(&msg.topic, self.client_id.as_ref().unwrap()).await {
+                        SUBSCRIPT.unsubscript(&msg.topic, self.client_id.as_ref().unwrap()).await;
+                        if let Err(e) = self.socket.lock().await.write_all(UnsubackMessage::new(msg.message_id).as_bytes()).await {
+                            println!("failed to write to socket; err = {:?}", e);
+                        }
+                    }
+                }
+            }
+            MqttMessageV3::Publish(msg) => {
+                println!("{:?}", msg);
+                let topic_msg = TopicMessage::Content(self.client_id.as_ref().unwrap().to_owned(), msg.clone());
+                SUBSCRIPT.broadcast(&msg.topic, &topic_msg).await;
+                if msg.qos == MqttQos::Qos1 {
+                    // let p = PubackMessage::new(pmsg.message_id);
+                    if let Err(e) = self.socket.lock().await.write_all(PubackMessage::new(msg.message_id).as_bytes()).await {
+                        println!("failed to write to socket; err = {:?}", e);
+                    }
+                }
+            }
+            MqttMessageV3::Pingresp(msg) => {
+                if let Err(e) = self.socket.lock().await.write_all(msg.as_bytes()).await {
+                    println!("failed to write to socket; err = {:?}", e);
+                }
+            }
+            MqttMessageV3::Disconnect(_) => {
+                println!("client disconnect");
+                if self.will_flag.unwrap() == MqttWillFlag::Enable {
+                    let msg = PublishMessage::new(
+                        self.will_qos.unwrap(),
+                        MqttDup::Disable,
+                        self.will_retain.unwrap(),
+                        self.will_topic.as_ref().unwrap().to_owned(),
+                        0,
+                        self.will_message.as_ref().unwrap().to_owned(),
+                    );
+                    let topic_msg = TopicMessage::Will(msg);
+                    SUBSCRIPT.broadcast(self.will_topic.as_ref().unwrap(), &topic_msg).await;
+                }
+                SUBSCRIPT.exit(self.client_id.as_ref().unwrap()).await;
+            }
+            _ => {}
         }
     }
 

@@ -37,8 +37,8 @@ impl Subscript {
         Subscript { container: Arc::new(Mutex::new(HashMap::default())) }
     }
 
-    pub async fn contain(&self, topic_name: &String) -> bool {
-        self.container.lock().await.contains_key(topic_name)
+    pub async fn contain<S: AsRef<str>>(&self, topic_name: S) -> bool {
+        self.container.lock().await.contains_key(topic_name.as_ref())
     }
 
     pub async fn len(&self) -> usize {
@@ -49,25 +49,25 @@ impl Subscript {
         self.container.lock().await.insert(topic_name.into(), topic)
     }
 
-    pub async fn delete(&self, topic_name: &String) -> Option<Topic> {
-        self.container.lock().await.remove(topic_name)
+    pub async fn remove<S: AsRef<str>>(&self, topic_name: S) -> Option<Topic> {
+        self.container.lock().await.remove(topic_name.as_ref())
     }
 
-    pub async fn is_subscript(&self, topic_name: &String, client_id: &String) -> bool {
-        self.container.lock().await.get(topic_name).unwrap().contain(client_id)
+    pub async fn is_subscript<S: AsRef<str>>(&self, topic_name: S, client_id: S) -> bool {
+        self.container.lock().await.get(topic_name.as_ref()).unwrap().contain(client_id)
     }
 
-    pub async fn new_subscript(&self, topic_name: &String, client_id: &String, sender: Sender<TopicMessage>) {
-        let mut top = Topic::new(topic_name.to_owned());
-        top.subscript(client_id, sender);
-        self.add(topic_name, top).await;
+    pub async fn new_subscript<S: AsRef<str>>(&self, topic_name: S, client_id: S, sender: Sender<TopicMessage>) {
+        let mut top = Topic::new(topic_name.as_ref());
+        top.subscript(client_id.as_ref(), sender);
+        self.add(topic_name.as_ref(), top).await;
     }
 
-    pub fn subscript(&self, topic_name: &String, client_id: &String, sender: Sender<TopicMessage>) {
+    pub fn subscript<S: AsRef<str>>(&self, topic_name: S, client_id: S, sender: Sender<TopicMessage>) {
         match self.container.try_lock() {
             Ok(mut container) => {
-                if let Some(t) = container.get_mut(topic_name) {
-                    t.subscript(client_id, sender);
+                if let Some(t) = container.get_mut(topic_name.as_ref()) {
+                    t.subscript(client_id.as_ref(), sender);
                 }
             }
             Err(e) => {
@@ -76,24 +76,30 @@ impl Subscript {
         }
     }
 
-    pub async fn unsubscript(&self, topic_name: &String, client_id: &String) {
-        self.container.lock().await.get_mut(topic_name).unwrap().unsubscript(client_id)
+    pub async fn unsubscript<S: AsRef<str>>(&self, topic_name: S, client_id: S) {
+        self.container.lock().await.get_mut(topic_name.as_ref()).unwrap().unsubscript(client_id);
+    }
+
+    pub async fn exit<S: AsRef<str>>(&self, client_id: S) {
+        for (_, topic) in self.container.lock().await.iter_mut() {
+            topic.unsubscript(client_id.as_ref());
+        }
     }
 
     pub async fn topics(&self) -> Vec<String> {
         self.container.lock().await.keys().cloned().collect::<Vec<String>>()
     }
 
-    pub async fn clients(&self, topic_name: &String) -> Vec<String> {
-        self.container.lock().await.get(topic_name).unwrap().client_id_list()
+    pub async fn clients<S: AsRef<str>>(&self, topic_name: S) -> Vec<String> {
+        self.container.lock().await.get(topic_name.as_ref()).unwrap().client_id_list()
     }
 
-    pub async fn client_len(&self, topic_name: &String) -> usize {
-        self.container.lock().await.get(topic_name).unwrap().client_len()
+    pub async fn client_len<S: AsRef<str>>(&self, topic_name: S) -> usize {
+        self.container.lock().await.get(topic_name.as_ref()).unwrap().client_len()
     }
 
-    pub async fn broadcast(&self, topic_name: &String, msg: &TopicMessage) {
-        if let Some(t) = self.container.lock().await.get(topic_name) {
+    pub async fn broadcast<S: AsRef<str>>(&self, topic_name: S, msg: &TopicMessage) {
+        if let Some(t) = self.container.lock().await.get(topic_name.as_ref()) {
             t.broadcast(msg).await
         }
     }
@@ -106,8 +112,8 @@ pub struct Topic {
 }
 
 impl Topic {
-    pub fn new(name: String) -> Topic {
-        Topic { name, senders: HashMap::new() }
+    pub fn new<S: Into<String>>(name: S) -> Topic {
+        Topic { name: name.into(), senders: HashMap::new() }
     }
 }
 
@@ -118,8 +124,11 @@ impl Topic {
         self.senders.insert(id, sender);
     }
 
-    pub fn unsubscript(&mut self, client_id: &String) {
-        self.senders.remove(client_id);
+    pub fn unsubscript<S: AsRef<str>>(&mut self, client_id: S) -> Option<Sender<TopicMessage>> {
+        if self.senders.contains_key(client_id.as_ref()) {
+            return self.senders.remove(client_id.as_ref());
+        }
+        None
     }
 
     pub fn client_id_list(&self) -> Vec<String> {
@@ -136,7 +145,7 @@ impl Topic {
         }
     }
 
-    pub fn contain(&self, client_id: &String) -> bool {
-        self.senders.contains_key(client_id)
+    pub fn contain<S: AsRef<str>>(&self, client_id: S) -> bool {
+        self.senders.contains_key(client_id.as_ref())
     }
 }
