@@ -18,12 +18,49 @@ pub mod server;
 
 
 lazy_static! {
-    static ref SUBSCRIPT:Subscript = Subscript::new();
+    static ref SUBSCRIPT: Subscript = Subscript::new();
+}
+
+#[derive(Debug, Clone)]
+pub struct ClientID(String);
+
+impl AsRef<String> for ClientID {
+    fn as_ref(&self) -> &String {
+        &self.0
+    }
+}
+
+impl AsRef<str> for ClientID {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl From<String> for ClientID {
+    fn from(s: String) -> Self {
+        ClientID(s)
+    }
+}
+
+impl From<&str> for ClientID {
+    fn from(s: &str) -> Self {
+        ClientID(s.to_owned())
+    }
+}
+
+impl PartialEq for ClientID{
+    fn eq(&self, other: &Self) -> bool {
+        PartialEq::eq(&self.0,&other.0)
+    }
+
+    fn ne(&self, other: &Self) -> bool {
+        PartialEq::ne(&self.0,&other.0)
+    }
 }
 
 #[derive(Debug, Clone)]
 pub enum TopicMessage {
-    Content(String, PublishMessage),
+    Content(ClientID, PublishMessage),
     Will(PublishMessage),
     Exit,
 }

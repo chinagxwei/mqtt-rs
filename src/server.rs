@@ -6,54 +6,11 @@ use crate::message::v3::{ConnackMessage, ConnectMessage, ConnectMessageBuild, Di
 use std::sync::Arc;
 use tokio::sync::{Mutex, mpsc};
 use tokio::sync::mpsc::{Sender, Receiver};
-use crate::TopicMessage;
+use crate::{TopicMessage, ClientID};
 use crate::protocol::{MqttProtocolLevel, MqttWillFlag, MqttQos, MqttRetain, MqttDup};
 use tokio::io::{AsyncWriteExt, AsyncReadExt};
 
 use crate::SUBSCRIPT;
-
-fn handle_level3_1_1(base_msg: BaseMessage) -> Option<MqttMessageKind> {
-    match base_msg.get_message_type() {
-        TypeKind::CONNECT => {
-            Some(MqttMessageKind::V3(MqttMessageV3::Connect(ConnectMessage::from(base_msg))))
-        }
-        // TypeKind::CONNACK => {}
-        TypeKind::PUBLISH => {
-            Some(MqttMessageKind::V3(MqttMessageV3::Publish(PublishMessage::from(base_msg))))
-        }
-        TypeKind::PUBACK => {
-            Some(MqttMessageKind::V3(MqttMessageV3::Puback(PubackMessage::from(base_msg))))
-        }
-        TypeKind::PUBREC => {
-            Some(MqttMessageKind::V3(MqttMessageV3::Pubrec(PubrecMessage::from(base_msg))))
-        }
-        TypeKind::PUBREL => {
-            Some(MqttMessageKind::V3(MqttMessageV3::Pubrel(PubrelMessage::from(base_msg))))
-        }
-        TypeKind::PUBCOMP => {
-            Some(MqttMessageKind::V3(MqttMessageV3::Pubcomp(PubcompMessage::from(base_msg))))
-        }
-        TypeKind::SUBSCRIBE => {
-            Some(MqttMessageKind::V3(MqttMessageV3::Subscribe(SubscribeMessage::from(base_msg))))
-        }
-        // TypeKind::SUBACK => {}
-        TypeKind::UNSUBSCRIBE => {
-            Some(MqttMessageKind::V3(MqttMessageV3::Unsubscribe(UnsubscribeMessage::from(base_msg))))
-        }
-        // TypeKind::UNSUBACK => {}
-        TypeKind::PINGREQ => {
-            Some(MqttMessageKind::V3(MqttMessageV3::Pingresp(PingrespMessage::default())))
-        }
-        // TypeKind::PINGRESP => {}
-        TypeKind::DISCONNECT => {
-            Some(MqttMessageKind::V3(MqttMessageV3::Disconnect(DisconnectMessage::default())))
-        }
-        // TypeKind::AUTH => {}
-        _ => {
-            return None;
-        }
-    }
-}
 
 pub struct MqttServer {
     host: String,
@@ -93,7 +50,7 @@ impl MqttServer {
                             match level {
                                 MqttProtocolLevel::Level3_1_1 => {
                                     if let Some(base_msg) = bmsg {
-                                        let res = handle_level3_1_1(base_msg);
+                                        let res = MqttMessageKind::v3(base_msg);
                                         // println!("res: {:?}", res);
                                         return res;
                                     }
@@ -124,7 +81,7 @@ pub struct Line {
     buff: [u8; 1024],
     sender: Sender<TopicMessage>,
     receiver: Arc<Mutex<Receiver<TopicMessage>>>,
-    client_id: Option<String>,
+    client_id: Option<ClientID>,
     protocol_name: Option<String>,
     protocol_level: Option<MqttProtocolLevel>,
     will_flag: Option<MqttWillFlag>,
@@ -169,7 +126,7 @@ impl Line {
                     match msg {
                         TopicMessage::Content(from_id, content) => {
                             if &to_client_id != &from_id {
-                                println!("publish msg to [{}]: {:?}", &to_client_id, content);
+                                println!("publish msg to [{:?}]: {:?}", &to_client_id, content);
                                 if let Err(e) = soc.clone().lock().await.write_all(content.as_bytes()).await {
                                     println!("failed to write to socket; err = {:?}", e);
                                 }
@@ -178,7 +135,7 @@ impl Line {
                             // println!("got = {}", str);
                         }
                         TopicMessage::Will(content) => {
-                            println!("will msg to [{}]: {:?}", &to_client_id, content);
+                            println!("will msg to [{:?}]: {:?}", &to_client_id, content);
                             if let Err(e) = soc.clone().lock().await.write_all(content.as_bytes()).await {
                                 println!("failed to write to socket; err = {:?}", e);
                             }
@@ -199,7 +156,7 @@ impl Line {
     }
 
     pub fn init(&mut self, connect_msg: &ConnectMessage) {
-        self.client_id = Some(connect_msg.payload.client_id.to_owned());
+        self.client_id = Some(ClientID(connect_msg.payload.client_id.to_owned()));
         self.will_flag = Some(connect_msg.will_flag);
         self.will_qos = Some(connect_msg.will_qos);
         self.will_retain = Some(connect_msg.will_retain);
@@ -262,9 +219,9 @@ impl Line {
             MqttMessageV3::Subscribe(msg) => {
                 println!("{:?}", msg);
                 if SUBSCRIPT.contain(&msg.topic).await {
-                    SUBSCRIPT.subscript(&msg.topic, self.client_id.as_ref().unwrap(), self.get_sender());
+                    SUBSCRIPT.subscript(&msg.topic, self.client_id.as_ref().unwrap().as_ref(), self.get_sender());
                 } else {
-                    SUBSCRIPT.new_subscript(&msg.topic, self.client_id.as_ref().unwrap(), self.get_sender()).await;
+                    SUBSCRIPT.new_subscript(&msg.topic, self.client_id.as_ref().unwrap().as_ref(), self.get_sender()).await;
                 }
                 println!("broadcast topic len: {}", SUBSCRIPT.len().await);
                 println!("broadcast topic list: {:?}", SUBSCRIPT.topics().await);
@@ -279,8 +236,8 @@ impl Line {
             MqttMessageV3::Unsubscribe(msg) => {
                 println!("topic name: {}", &msg.topic);
                 if SUBSCRIPT.contain(&msg.topic).await {
-                    if SUBSCRIPT.is_subscript(&msg.topic, self.client_id.as_ref().unwrap()).await {
-                        SUBSCRIPT.unsubscript(&msg.topic, self.client_id.as_ref().unwrap()).await;
+                    if SUBSCRIPT.is_subscript(&msg.topic, self.client_id.as_ref().unwrap().as_ref()).await {
+                        SUBSCRIPT.unsubscript(&msg.topic, self.client_id.as_ref().unwrap().as_ref()).await;
                         if let Err(e) = self.socket.lock().await.write_all(UnsubackMessage::new(msg.message_id).as_bytes()).await {
                             println!("failed to write to socket; err = {:?}", e);
                         }
