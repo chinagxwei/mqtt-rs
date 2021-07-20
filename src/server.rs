@@ -183,6 +183,7 @@ impl Line {
                 return None;
             }
         };
+        println!("original: {:?}", &self.buff[0..n]);
         Some(BaseMessage::from(&self.buff[0..n]))
     }
 
