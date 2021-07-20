@@ -2,7 +2,10 @@ use crate::tools::pack_tool::{pack_protocol_name, pack_connect_flags, pack_clien
 use crate::protocol::{MqttWillFlag, MqttSessionPresent, MqttQos};
 use crate::hex::reason_code::{ReasonCodes, ReasonCodeV3};
 use crate::types::TypeKind;
-use crate::message::v3::{ConnectMessage, PublishMessage, SubscribeMessage, SubackMessage, UnsubscribeMessage};
+use crate::message::v3::{ConnectMessage, PublishMessage, SubscribeMessage, SubackMessage, UnsubscribeMessage, ConnectMessagePayload};
+use crate::message::BaseMessage;
+use crate::tools::un_pack_tool::{get_variable_header, get_payload_data};
+// use crate::tools::un_pack_tool_v2::get_payload_data;
 
 pub struct Pack;
 
@@ -109,5 +112,58 @@ impl Pack {
         let head = pack_header(msg_type, body.len());
 
         [head, body].concat()
+    }
+}
+
+pub struct Unpcak;
+
+impl Unpcak {
+    pub fn connect(mut base: BaseMessage) -> ConnectMessage {
+        let message_bytes = base.bytes.as_slice().get(2..).unwrap();
+        let (
+            mut protocol_name,
+            mut keep_alive,
+            mut protocol_level,
+            mut clean_session,
+            mut will_flag,
+            mut will_qos,
+            mut will_retain,
+            mut password_flag,
+            mut username_flag
+        ) = get_variable_header(message_bytes);
+
+        // crate::tools::un_pack_tool_v2::get_variable_header(message_bytes);
+
+        let (
+            client_id,
+            will_topic,
+            will_message,
+            user_name,
+            password
+        ) = get_payload_data(
+            message_bytes,
+            will_flag.unwrap(),
+            username_flag.unwrap(),
+            password_flag.unwrap(),
+        );
+
+        ConnectMessage {
+            msg_type: base.msg_type,
+            protocol_name: protocol_name.take().unwrap(),
+            protocol_level: protocol_level.take().unwrap(),
+            clean_session: clean_session.take().unwrap(),
+            will_flag: will_flag.take().unwrap(),
+            will_qos: will_qos.take().unwrap(),
+            will_retain: will_retain.take().unwrap(),
+            keep_alive: keep_alive.take().unwrap(),
+            payload: ConnectMessagePayload {
+                client_id,
+                will_topic,
+                will_message,
+                user_name,
+                password,
+            },
+            bytes: Some(base.bytes),
+        }
     }
 }
