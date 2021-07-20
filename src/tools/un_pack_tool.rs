@@ -40,7 +40,7 @@ pub fn get_variable_header(data: &[u8]) -> (
     Option<MqttPasswordFlag>,
     Option<MqttUsernameFlag>
 ) {
-    // println!("{}",( data[7] >> 1 & 1));
+    println!("get_variable_header data: {:?}", data);
     let length = data[1];
     let slice = data.get(2..(2 + length) as usize);
     let protocol_name = Option::from(String::from_utf8_lossy(slice.unwrap()).into_owned());
@@ -64,6 +64,33 @@ pub fn get_variable_header(data: &[u8]) -> (
     )
 }
 
+pub fn get_payload_data(data: &[u8], will_flag: MqttWillFlag, username_flag: MqttUsernameFlag, password_flag: MqttPasswordFlag)
+                        -> (String, Option<String>, Option<String>, Option<String>, Option<String>) {
+    let (client_id, last_data) = parse_string(data.get(10..).unwrap()).unwrap();
+
+    let (will_topic, will_message, last_data) = if MqttWillFlag::Enable == will_flag {
+        let (will_topic, will_last_data) = parse_string(last_data.clone().unwrap()).unwrap();
+        let (will_message, will_last_data) = parse_string(will_last_data.unwrap()).unwrap();
+        (Some(will_topic), Some(will_message), will_last_data)
+    } else {
+        (None, None, last_data)
+    };
+
+    let (user_name, last_data) = if MqttUsernameFlag::Enable == username_flag {
+        parse_string(last_data.clone().unwrap()).unwrap()
+    } else {
+        ("".to_string(), last_data)
+    };
+
+    let (password, _) = if MqttPasswordFlag::Enable == password_flag {
+        parse_string(last_data.clone().unwrap()).unwrap()
+    } else {
+        ("".to_string(), last_data)
+    };
+
+    (client_id, will_topic, will_message, Some(user_name), Some(password))
+}
+
 pub fn parse_number(data: &[u8]) -> u32 {
     u32::from_le_bytes([data[1], data[0], 0, 0])
 }
@@ -75,6 +102,7 @@ pub fn parse_number_to_vec(data: &[u8]) -> (u32, Vec<u8>) {
 }
 
 pub fn parse_string(data: &[u8]) -> Result<(String, Option<&[u8]>), &str> {
+    println!("parse_string: {:?}", data);
     let length = data[1];
     if length as usize > data.len() {
         return Err("parse string length error");
@@ -99,7 +127,7 @@ fn get_remaining_length(data: &[u8]) -> Result<(usize, usize), &'static str> {
     loop {
         digit = data[*head_index] & 127;
         value += digit as usize * multiplier;
-        if multiplier > 128*128*128 {
+        if multiplier > 128 * 128 * 128 {
             return Err("Malformed Variable Byte Integer");
         }
         multiplier *= 128;
