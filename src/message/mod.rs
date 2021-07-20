@@ -67,8 +67,8 @@ pub trait MqttBytesMessage: MqttMessage {
 
 #[derive(Debug)]
 pub struct BaseMessage {
-    msg_type: TypeKind,
-    bytes: Vec<u8>,
+    pub msg_type: TypeKind,
+    pub bytes: Vec<u8>,
 }
 
 impl MqttMessage for BaseMessage {
@@ -88,6 +88,7 @@ impl From<&[u8]> for BaseMessage {
     fn from(data: &[u8]) -> Self {
         let (mut r#type, _) = get_type_have_data(data);
         let bytes = data.to_vec();
+        // crate::tools::un_pack_tool_v2::get_remaining_data(data);
         BaseMessage { msg_type: r#type.take().unwrap(), bytes }
     }
 }
