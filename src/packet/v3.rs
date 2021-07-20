@@ -4,8 +4,7 @@ use crate::hex::reason_code::{ReasonCodes, ReasonCodeV3};
 use crate::types::TypeKind;
 use crate::message::v3::{ConnectMessage, PublishMessage, SubscribeMessage, SubackMessage, UnsubscribeMessage, ConnectMessagePayload};
 use crate::message::BaseMessage;
-use crate::tools::un_pack_tool::{get_variable_header, get_payload_data};
-// use crate::tools::un_pack_tool_v2::get_payload_data;
+use crate::tools::un_pack_tool::{get_connect_variable_header, get_connect_payload_data};
 
 pub struct Pack;
 
@@ -119,20 +118,21 @@ pub struct Unpcak;
 
 impl Unpcak {
     pub fn connect(mut base: BaseMessage) -> ConnectMessage {
-        let message_bytes = base.bytes.as_slice().get(2..).unwrap();
+        let message_bytes = base.bytes.as_slice();
         let (
-            mut protocol_name,
-            mut keep_alive,
-            mut protocol_level,
-            mut clean_session,
-            mut will_flag,
-            mut will_qos,
-            mut will_retain,
-            mut password_flag,
-            mut username_flag
-        ) = get_variable_header(message_bytes);
-
-        // crate::tools::un_pack_tool_v2::get_variable_header(message_bytes);
+            (
+                mut protocol_name,
+                mut keep_alive,
+                mut protocol_level,
+                mut clean_session,
+                mut will_flag,
+                mut will_qos,
+                mut will_retain,
+                mut password_flag,
+                mut username_flag
+            ),
+            last_data
+        ) = get_connect_variable_header(message_bytes);
 
         let (
             client_id,
@@ -140,8 +140,8 @@ impl Unpcak {
             will_message,
             user_name,
             password
-        ) = get_payload_data(
-            message_bytes,
+        ) = get_connect_payload_data(
+            last_data,
             will_flag.unwrap(),
             username_flag.unwrap(),
             password_flag.unwrap(),

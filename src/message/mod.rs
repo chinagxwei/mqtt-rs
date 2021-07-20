@@ -1,11 +1,11 @@
 use crate::types::TypeKind;
-use crate::tools::un_pack_tool::{get_type, get_type_have_data, get_protocol_name_and_version};
+use crate::tools::un_pack_tool::{get_type, get_protocol_name_and_version};
 use crate::message::v3::{
-    ConnackMessage, ConnectMessage, ConnectMessageBuild, DisconnectMessage, MqttMessageV3,
+    ConnackMessage, ConnectMessage, DisconnectMessage, MqttMessageV3,
     PingrespMessage, PubackMessage, PubcompMessage, PublishMessage, PubrecMessage, PubrelMessage,
-    SubackMessage, SubscribeMessage, UnsubackMessage, UnsubscribeMessage,PingreqMessage
+    SubackMessage, SubscribeMessage, UnsubackMessage, UnsubscribeMessage, PingreqMessage,
 };
-use crate::protocol::MqttProtocolLevel;
+use crate::protocol::{MqttProtocolLevel, MqttDup, MqttQos, MqttRetain};
 use crate::message::v3::MqttMessageV3::Pubrec;
 
 pub mod v3;
@@ -29,11 +29,9 @@ impl MqttMessageKind {
             _ => { None }
         }
     }
-
-
 }
 
-impl MqttMessageKind{
+impl MqttMessageKind {
     pub fn v3(base_msg: BaseMessage) -> Option<MqttMessageKind> {
         match base_msg.get_message_type() {
             TypeKind::CONNECT => { Some(Self::V3(MqttMessageV3::Connect(ConnectMessage::from(base_msg)))) }
@@ -68,6 +66,9 @@ pub trait MqttBytesMessage: MqttMessage {
 #[derive(Debug)]
 pub struct BaseMessage {
     pub msg_type: TypeKind,
+    pub dup:Option<MqttDup>,
+    pub qos:Option<MqttQos>,
+    pub retain:Option<MqttRetain>,
     pub bytes: Vec<u8>,
 }
 
@@ -79,17 +80,15 @@ impl MqttMessage for BaseMessage {
 
 impl From<Vec<u8>> for BaseMessage {
     fn from(data: Vec<u8>) -> Self {
-        let mut r#type = get_type(data.as_slice());
-        BaseMessage { msg_type: r#type.take().unwrap(), bytes: data }
+        let (mut r#type2,retain, qos, dup, last_bytes) = get_type(data.as_slice());
+        BaseMessage { msg_type: r#type2.take().unwrap(), dup, qos, retain, bytes: last_bytes.to_vec() }
     }
 }
 
 impl From<&[u8]> for BaseMessage {
     fn from(data: &[u8]) -> Self {
-        let (mut r#type, _) = get_type_have_data(data);
-        let bytes = data.to_vec();
-        // crate::tools::un_pack_tool_v2::get_remaining_data(data);
-        BaseMessage { msg_type: r#type.take().unwrap(), bytes }
+        let (mut r#type2,retain, qos, dup, last_bytes) = get_type(data);
+        BaseMessage { msg_type: r#type2.take().unwrap(), dup, qos, retain, bytes: last_bytes.to_vec() }
     }
 }
 
@@ -119,7 +118,7 @@ impl From<&BaseMessage> for BaseConnect {
         let (
             mut protocol_name,
             mut protocol_level
-        ) = get_protocol_name_and_version(data.bytes.as_slice().get(2..).unwrap());
+        ) = get_protocol_name_and_version(data.bytes.as_slice());
         BaseConnect {
             msg_type: data.msg_type,
             protocol_name: protocol_name.take().unwrap(),

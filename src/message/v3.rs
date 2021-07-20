@@ -1,5 +1,5 @@
 use crate::types::TypeKind;
-use crate::tools::un_pack_tool::{get_type, parse_string, get_variable_header, parse_number, get_publish_header};
+use crate::tools::un_pack_tool::{get_type, parse_string, parse_number, get_publish_header, get_connect_variable_header};
 use crate::protocol::{MqttProtocolLevel, MqttWillMessage, MqttCleanSession, MqttWillFlag, MqttWillTopic, MqttUsernameFlag, MqttPasswordFlag, MqttSessionPresent, MqttDup, MqttQos, MqttRetain};
 use std::convert::TryFrom;
 use crate::hex::reason_code::{ReasonCodeV3, ReasonCodes};
@@ -171,108 +171,6 @@ impl From<BaseMessage> for ConnectMessage {
     }
 }
 
-impl From<BaseMessage> for ConnectMessageBuild {
-    fn from(mut base: BaseMessage) -> Self {
-        let (
-            protocol_name,
-            keep_alive,
-            protocol_level,
-            clean_session,
-            will_flag,
-            will_qos,
-            will_retain,
-            password_flag,
-            username_flag
-        ) = get_variable_header(base.bytes.as_slice().get(2..base.bytes.len()).unwrap());
-
-        ConnectMessageBuild {
-            msg_type: Some(base.msg_type),
-            protocol_name,
-            protocol_level,
-            clean_session,
-            will_flag,
-            will_qos,
-            will_retain,
-            username_flag,
-            password_flag,
-            keep_alive,
-            bytes: base.bytes,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct ConnectMessageBuild {
-    msg_type: Option<TypeKind>,
-    protocol_name: Option<String>,
-    protocol_level: Option<MqttProtocolLevel>,
-    clean_session: Option<MqttCleanSession>,
-    will_flag: Option<MqttWillFlag>,
-    will_qos: Option<MqttQos>,
-    will_retain: Option<MqttRetain>,
-    username_flag: Option<MqttUsernameFlag>,
-    password_flag: Option<MqttPasswordFlag>,
-    keep_alive: Option<u32>,
-    bytes: Vec<u8>,
-}
-
-impl ConnectMessageBuild {
-    pub fn build(mut self) -> ConnectMessage {
-        let (
-            client_id,
-            will_topic,
-            will_message,
-            user_name,
-            password
-        ) = self.get_payload_data();
-
-        ConnectMessage {
-            msg_type: self.msg_type.take().unwrap(),
-            protocol_name: self.protocol_name.take().unwrap(),
-            protocol_level: self.protocol_level.take().unwrap(),
-            clean_session: self.clean_session.take().unwrap(),
-            will_flag: self.will_flag.take().unwrap(),
-            will_qos: self.will_qos.take().unwrap(),
-            will_retain: self.will_retain.take().unwrap(),
-            keep_alive: self.keep_alive.take().unwrap(),
-            payload: ConnectMessagePayload {
-                client_id,
-                will_topic,
-                will_message,
-                user_name,
-                password,
-            },
-            bytes: Some(self.bytes),
-        }
-    }
-
-    fn get_payload_data(&self) -> (String, Option<String>, Option<String>, Option<String>, Option<String>) {
-        let (client_id, last_data) = parse_string(self.bytes.as_slice().get(12..self.bytes.len()).unwrap()).unwrap();
-
-        let (will_topic, will_message, last_data) = if MqttWillFlag::Enable == self.will_flag.unwrap() {
-            let (will_topic, will_last_data) = parse_string(last_data.clone().unwrap()).unwrap();
-            let (will_message, will_last_data) = parse_string(will_last_data.unwrap()).unwrap();
-            (Some(will_topic), Some(will_message), will_last_data)
-        } else {
-            (None, None, last_data)
-        };
-
-        let (user_name, last_data) = if MqttUsernameFlag::Enable == self.username_flag.unwrap() {
-            parse_string(last_data.clone().unwrap()).unwrap()
-        } else {
-            ("".to_string(), last_data)
-        };
-
-        let (password, _) = if MqttPasswordFlag::Enable == self.password_flag.unwrap() {
-            parse_string(last_data.clone().unwrap()).unwrap()
-        } else {
-            ("".to_string(), last_data)
-        };
-
-        (client_id, will_topic, will_message, Some(user_name), Some(password))
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct ConnackMessage {
     msg_type: TypeKind,
@@ -349,14 +247,14 @@ impl MqttBytesMessage for SubscribeMessage {
 
 impl From<BaseMessage> for SubscribeMessage {
     fn from(mut base: BaseMessage) -> Self {
-        let message_id = parse_number(base.bytes.as_slice().get(2..=3).unwrap());
-        let (topic, last_data) = parse_string(base.bytes.as_slice().get(4..base.bytes.len() - 1).unwrap()).unwrap();
-        let qos = base.bytes.get(base.bytes.len() - 1).expect("get qos error");
+        let (message_id, last_data) = parse_number(base.bytes.as_slice());
+        let (topic, last_data) = parse_string(last_data).unwrap();
+        let qos = if last_data.unwrap().len() == 1 { last_data.unwrap()[0] } else { 0 };
         SubscribeMessage {
             msg_type: base.msg_type,
             message_id,
             topic,
-            qos: MqttQos::try_from(*qos).unwrap(),
+            qos: MqttQos::try_from(qos).unwrap(),
             bytes: Some(base.bytes),
         }
     }
@@ -444,8 +342,8 @@ impl MqttBytesMessage for UnsubscribeMessage {
 
 impl From<BaseMessage> for UnsubscribeMessage {
     fn from(mut base: BaseMessage) -> Self {
-        let message_id = parse_number(base.bytes.as_slice().get(2..=3).unwrap());
-        let (topic, _) = parse_string(base.bytes.as_slice().get(4..base.bytes.len()).unwrap()).unwrap();
+        let (message_id, last_data) = parse_number(base.bytes.as_slice());
+        let (topic, _) = parse_string(last_data).unwrap();
         UnsubscribeMessage {
             msg_type: base.msg_type,
             message_id,
@@ -501,7 +399,8 @@ impl UnsubackMessage {
 
 impl From<BaseMessage> for UnsubackMessage {
     fn from(mut base: BaseMessage) -> Self {
-        let message_id = parse_number(base.bytes.as_slice().get(2..=3).unwrap());
+        let (message_id, _) = parse_number(base.bytes.as_slice());
+        // let message_id = parse_number(base.bytes.as_slice().get(2..=3).unwrap());
         UnsubackMessage { msg_type: base.msg_type, message_id, bytes: Some(base.bytes) }
     }
 }
@@ -532,17 +431,18 @@ impl MqttBytesMessage for PublishMessage {
 
 impl From<BaseMessage> for PublishMessage {
     fn from(mut base: BaseMessage) -> Self {
-        let (retain, qos, dup) = get_publish_header(*base.bytes.get(0).unwrap());
-        let (topic, last_data) = parse_string(base.bytes.as_slice().get(2..base.bytes.len()).unwrap()).unwrap();
-        let message_id = parse_number(last_data.unwrap());
-        let msg_body = String::from_utf8_lossy(last_data.unwrap().get(2..last_data.unwrap().len()).unwrap());
+        // let (retain, qos, dup) = get_publish_header(*base.bytes.get(0).unwrap());
+        let (topic, last_data) = parse_string(base.bytes.as_slice()).unwrap();
+        // let message_id = parse_number(last_data.unwrap());
+        let (message_id, last_data) = parse_number(last_data.unwrap());
+        let msg_body = String::from_utf8_lossy(last_data);
         PublishMessage {
             msg_type: base.msg_type,
             message_id,
             topic,
-            dup: dup.unwrap(),
-            qos: qos.unwrap(),
-            retain: retain.unwrap(),
+            dup: base.dup.unwrap(),
+            qos: base.qos.unwrap(),
+            retain: base.retain.unwrap(),
             msg_body: msg_body.into_owned(),
             bytes: Some(base.bytes),
         }
@@ -599,7 +499,8 @@ impl PubackMessage {
 
 impl From<BaseMessage> for PubackMessage {
     fn from(mut base: BaseMessage) -> Self {
-        let message_id = parse_number(base.bytes.get(2..base.bytes.len()).unwrap());
+        let (message_id, _) = parse_number(base.bytes.as_slice());
+        // let message_id = parse_number(base.bytes.get(2..base.bytes.len()).unwrap());
         PubackMessage { msg_type: base.msg_type, message_id, bytes: Some(base.bytes) }
     }
 }
@@ -637,7 +538,8 @@ impl PubrecMessage {
 
 impl From<BaseMessage> for PubrecMessage {
     fn from(mut base: BaseMessage) -> Self {
-        let message_id = parse_number(base.bytes.get(2..base.bytes.len()).unwrap());
+        // let message_id = parse_number(base.bytes.get(2..base.bytes.len()).unwrap());
+        let (message_id, _) = parse_number(base.bytes.as_slice());
         PubrecMessage { msg_type: base.msg_type, message_id, bytes: Some(base.bytes) }
     }
 }
@@ -675,7 +577,8 @@ impl PubrelMessage {
 
 impl From<BaseMessage> for PubrelMessage {
     fn from(mut base: BaseMessage) -> Self {
-        let message_id = parse_number(base.bytes.get(2..base.bytes.len()).unwrap());
+        // let message_id = parse_number(base.bytes.get(2..base.bytes.len()).unwrap());
+        let (message_id, _) = parse_number(base.bytes.as_slice());
         PubrelMessage { msg_type: base.msg_type, message_id, bytes: Some(base.bytes) }
     }
 }
@@ -713,7 +616,8 @@ impl PubcompMessage {
 
 impl From<BaseMessage> for PubcompMessage {
     fn from(mut base: BaseMessage) -> Self {
-        let message_id = parse_number(base.bytes.get(2..base.bytes.len()).unwrap());
+        // let message_id = parse_number(base.bytes.get(2..base.bytes.len()).unwrap());
+        let (message_id, _) = parse_number(base.bytes.as_slice());
         PubcompMessage { msg_type: base.msg_type, message_id, bytes: Some(base.bytes) }
     }
 }
