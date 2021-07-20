@@ -6,7 +6,7 @@ use crate::hex::reason_code::{ReasonCodeV3, ReasonCodes};
 use crate::tools::pack_tool::{pack_header};
 use crate::config::Config;
 use crate::hex::reason_code::ReasonCodes::V3;
-use crate::packet::v3::Pack;
+use crate::packet::v3::{Pack, Unpcak};
 use crate::message::{MqttBytesMessage, MqttMessage, BaseMessage};
 
 #[derive(Debug, Clone)]
@@ -167,7 +167,7 @@ impl MqttBytesMessage for ConnectMessage {
 
 impl From<BaseMessage> for ConnectMessage {
     fn from(data: BaseMessage) -> Self {
-        ConnectMessageBuild::from(data).build()
+        Unpcak::connect(data)
     }
 }
 
