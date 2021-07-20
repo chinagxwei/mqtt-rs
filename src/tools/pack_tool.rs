@@ -129,10 +129,6 @@ mod tests {
 
     #[test]
     fn test() {
-        let build = ConfigBuilder::default();
-        let config = build.build().unwrap();
-        let msg = ConnectMessage::new(MqttCleanSession::Enable, config);
-        println!("{:?}", msg);
         // println!("{:?}", pack_protocol_name(&String::from("MQTT")))
     }
 }
