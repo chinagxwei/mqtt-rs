@@ -1,4 +1,4 @@
-use crate::tools::pack_tool::{pack_protocol_name, pack_connect_flags, pack_client_id, pack_will_topic, pack_will_message, pack_username, pack_password, pack_header, pack_message_id, pack_string, pack_publish_header};
+use crate::tools::pack_tool::{pack_protocol_name, pack_connect_flags, pack_client_id, pack_will_topic, pack_will_message, pack_username, pack_password, pack_header, pack_message_short_id, pack_string, pack_publish_header};
 use crate::protocol::{MqttWillFlag, MqttSessionPresent, MqttQos};
 use crate::hex::reason_code::{ReasonCodes, ReasonCodeV3};
 use crate::types::TypeKind;
@@ -63,7 +63,7 @@ impl Pack {
         body.push(msg.qos as u8);
 
         if msg.qos > MqttQos::Qos0 {
-            body = [body, pack_message_id(msg.message_id)].concat();
+            body = [body, pack_message_short_id(msg.message_id)].concat();
         }
 
         body = [body, msg.msg_body.as_bytes().to_vec()].concat();
@@ -74,7 +74,7 @@ impl Pack {
     }
 
     pub fn subscribe(msg: &SubscribeMessage) -> Vec<u8> {
-        let mut body = pack_message_id(msg.message_id);
+        let mut body = pack_message_short_id(msg.message_id);
 
         body = [body, pack_string(&msg.topic)].concat();
 
@@ -86,7 +86,7 @@ impl Pack {
     }
 
     pub fn suback(msg: &SubackMessage) -> Vec<u8> {
-        let mut body = pack_message_id(msg.message_id);
+        let mut body = pack_message_short_id(msg.message_id);
 
         body.push(msg.qos as u8);
 
@@ -96,7 +96,7 @@ impl Pack {
     }
 
     pub fn unsubscribe(msg: &UnsubscribeMessage) -> Vec<u8> {
-        let mut body = pack_message_id(msg.message_id);
+        let mut body = pack_message_short_id(msg.message_id);
 
         body = [body, pack_string(&msg.topic)].concat();
 
@@ -106,7 +106,7 @@ impl Pack {
     }
 
     pub fn not_payload(message_id: u32, msg_type: TypeKind) -> Vec<u8> {
-        let mut body = pack_message_id(message_id);
+        let mut body = pack_message_short_id(message_id);
 
         let head = pack_header(msg_type, body.len());
 

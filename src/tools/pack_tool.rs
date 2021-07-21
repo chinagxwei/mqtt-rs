@@ -9,20 +9,13 @@ pub fn pack_string(str: &String) -> Vec<u8> {
     [head, str].concat()
 }
 
-pub fn pack_message_id(message_id: u32) -> Vec<u8> {
-    let mut body = vec![];
-    match message_id.to_ne_bytes() {
-        [a, 0_u8, 0_u8, 0_u8] => {
-            body.push(0_u8);
-            body.push(a);
-        }
-        [a, b, 0_u8, 0_u8] => {
-            body.push(b);
-            body.push(a);
-        }
-        _ => {}
-    }
-    body
+pub fn pack_message_short_id(message_id: u32) -> Vec<u8> {
+    (message_id as u16)
+        .to_ne_bytes()
+        .iter()
+        .rev()
+        .cloned()
+        .collect::<Vec<u8>>()
 }
 
 pub fn pack_header(header_type: TypeKind, body_length: usize) -> Vec<u8> {
@@ -125,10 +118,10 @@ fn pack_remaining_length(mut length: usize) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mqtt::config::{Config, ConfigBuilder};
 
     #[test]
     fn test() {
         // println!("{:?}", pack_protocol_name(&String::from("MQTT")))
+        // let b = (3600_u32 as u16).to_ne_bytes();
     }
 }

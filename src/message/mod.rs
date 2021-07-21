@@ -9,6 +9,7 @@ use crate::protocol::{MqttProtocolLevel, MqttDup, MqttQos, MqttRetain};
 use crate::message::v3::MqttMessageV3::Pubrec;
 
 pub mod v3;
+pub mod v5;
 
 #[derive(Debug)]
 pub enum MqttMessageKind {
@@ -45,8 +46,8 @@ impl MqttMessageKind {
             // TypeKind::SUBACK => { Some(Self::V3(MqttMessageV3::Suback(SubackMessage::from(base_msg)))) }
             TypeKind::UNSUBSCRIBE => { Some(Self::V3(MqttMessageV3::Unsubscribe(UnsubscribeMessage::from(base_msg)))) }
             TypeKind::UNSUBACK => { Some(Self::V3(MqttMessageV3::Unsuback(UnsubackMessage::from(base_msg)))) }
-            TypeKind::PINGREQ => { Some(Self::V3(MqttMessageV3::Pingreq(PingreqMessage::from(base_msg)))) }
-            TypeKind::PINGRESP => { Some(Self::V3(MqttMessageV3::Pingresp(PingrespMessage::default()))) }
+            // TypeKind::PINGREQ => { Some(Self::V3(MqttMessageV3::Pingreq(PingreqMessage::from(base_msg)))) }
+            TypeKind::PINGREQ => { Some(Self::V3(MqttMessageV3::Pingresp(PingrespMessage::default()))) }
             TypeKind::DISCONNECT => { Some(Self::V3(MqttMessageV3::Disconnect((DisconnectMessage::default())))) }
             TypeKind::AUTH => { None }
             _ => { None }

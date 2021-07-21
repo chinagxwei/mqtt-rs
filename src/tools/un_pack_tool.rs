@@ -1,5 +1,5 @@
 use crate::types::TypeKind;
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use crate::protocol::{MqttProtocolLevel, MqttCleanSession, MqttWillFlag, MqttUsernameFlag, MqttPasswordFlag, MqttRetain, MqttQos, MqttDup};
 
 pub fn get_type(data: &[u8]) -> (Option<TypeKind>, Option<MqttRetain>, Option<MqttQos>, Option<MqttDup>, &[u8]) {
@@ -12,13 +12,9 @@ pub fn get_type(data: &[u8]) -> (Option<TypeKind>, Option<MqttRetain>, Option<Mq
 }
 
 pub fn get_protocol_name_and_version(data: &[u8]) -> (Option<String>, Option<MqttProtocolLevel>) {
-    println!("v2 get_protocol_name_and_version: {:?}", data);
-    // let length = data[1];
     let slice = get_remaining_data(data);
-    println!("v2 slice : {:?}", get_remaining_data(data));
     let protocol_name = Option::from(String::from_utf8_lossy(slice).into_owned());
     let mqtt_version = MqttProtocolLevel::try_from(data[6]).ok();
-    println!("v2 protocol_name and version : {:?} - {:?}", protocol_name.as_ref().unwrap(), mqtt_version.as_ref().unwrap());
     (protocol_name, mqtt_version)
 }
 
@@ -63,14 +59,12 @@ pub fn get_connect_payload_data(data: &[u8], will_flag: MqttWillFlag, username_f
 pub fn get_connect_variable_header(data: &[u8])
                                    -> (
                                        (
-                                           Option<String>, Option<u32>, Option<MqttProtocolLevel>, Option<MqttCleanSession>,
-                                           Option<MqttWillFlag>, Option<MqttQos>, Option<MqttRetain>, Option<MqttPasswordFlag>,
-                                           Option<MqttUsernameFlag>
+                                           Option<String>, Option<u32>, Option<MqttProtocolLevel>,
+                                           Option<MqttCleanSession>, Option<MqttWillFlag>, Option<MqttQos>,
+                                           Option<MqttRetain>, Option<MqttPasswordFlag>, Option<MqttUsernameFlag>
                                        ),
                                        &[u8]
                                    ) {
-    println!("v2 get_variable_header handle: {:?}", data);
-    // let length = data[1];
     let slice = get_remaining_data(data);
     let protocol_name = Option::from(String::from_utf8_lossy(slice).into_owned());
     let clean_session = (data[7] >> 1) & 1;
@@ -79,8 +73,7 @@ pub fn get_connect_variable_header(data: &[u8])
     let will_retain = (data[7] >> 5) & 1;
     let password_flag = (data[7] >> 6) & 1;
     let username_flag = (data[7] >> 7) & 1;
-    let (keep_alive, _) = parse_number(data.get(8..10).unwrap());
-    println!("v2 get_variable_header get_remaining_data handle: {:?}", get_remaining_data(data.get(10..).unwrap()));
+    let (keep_alive, _) = parse_short_int(data.get(8..10).unwrap());
     (
         (
             protocol_name,
@@ -97,8 +90,26 @@ pub fn get_connect_variable_header(data: &[u8])
     )
 }
 
-pub fn parse_number(data: &[u8]) -> (u32, &[u8]) {
-    (u32::from_le_bytes([data[1], data[0], 0, 0]), data.get(2..).unwrap())
+pub fn parse_byte(data: &[u8]) -> (u8, &[u8]) {
+    (data[0], data.get(1..).unwrap())
+}
+
+pub fn parse_short_int(data: &[u8]) -> (u32, &[u8]) {
+    println!("parse_short_int: {:?}", data.get(..2).unwrap());
+    let bytes = data.get(..2).unwrap();
+    let short_int_bytes = bytes.iter().rev().cloned().collect::<Vec<u8>>();
+    let short_int = u16::from_le_bytes(short_int_bytes.try_into().unwrap()) as u32;
+    println!("short int: {}", short_int);
+    (short_int, data.get(2..).unwrap())
+}
+
+pub fn parse_long_int(data: &[u8]) -> (u32, &[u8]) {
+    println!("parse_long_int: {:?}", data.get(1..5).unwrap());
+    let bytes = data.get(1..5).unwrap();
+    let long_int_bytes = bytes.iter().rev().cloned().collect::<Vec<u8>>();
+    let long_int = u32::from_le_bytes(long_int_bytes.try_into().unwrap());
+    println!("long int: {}", long_int);
+    (long_int, data.get(5..).unwrap())
 }
 
 pub fn parse_string(data: &[u8]) -> Result<(String, Option<&[u8]>), &str> {
@@ -128,12 +139,14 @@ fn get_remaining_length(data: &[u8]) -> Result<(usize, usize), &'static str> {
     Ok((value, *head_index))
 }
 
+///
+/// 后续需要处理的数据
+///
 pub fn get_remaining_data(data: &[u8]) -> &[u8] {
-    println!("v2 remaining_data handle data: {:?}", data);
+    // println!("remaining_data handle data: {:?}", data);
     let (remaining_length, head_bytes) = get_remaining_length(data).unwrap();
-    println!("v2 remaining_length: {}", remaining_length);
-    println!("v2 head_bytes: {}", head_bytes);
-    println!("v2 last_data: {:?}", data.get(head_bytes..(remaining_length + head_bytes)).unwrap());
+    // println!("remaining_length: {}", remaining_length);
+    // println!("last_data: {:?}", data.get(head_bytes..(remaining_length + head_bytes)).unwrap());
     data.get(head_bytes..(remaining_length + head_bytes)).unwrap()
 }
 
@@ -145,8 +158,17 @@ mod tests {
     fn test() {
         // let data = vec![192_u8, 0_u8];
         // assert_eq!(TypeKind::PINGREQ, get_type(&data));
-        // println!("{:?}", format!("{:b}", 192).as_bytes());
-        println!("{}", u32::from_le_bytes([254, 164, 0, 0]));
+        // println!("{:?}", format!("{:b}", 192));
+        let mut arr = [0, 0, 14, 16];
+        let a = arr.iter().rev();
+        println!("{:?}", a.cloned().collect::<Vec<i32>>());
+        // println!("{}", u32::from_le_bytes([16, 14, 0, 0]));
         // let a =  3600_u32.to_ne_bytes();
+    }
+
+    fn read_be_u16(input: &mut &[u8]) -> u16 {
+        let (int_bytes, rest) = input.split_at(std::mem::size_of::<u16>());
+        *input = rest;
+        u16::from_be_bytes(int_bytes.try_into().unwrap())
     }
 }
