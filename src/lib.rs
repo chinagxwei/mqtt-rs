@@ -3,10 +3,12 @@ extern crate lazy_static;
 
 use crate::message::v3::PublishMessage;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 use std::collections::HashMap;
 use tokio::sync::mpsc::Sender;
-use crate::server::Line;
+use tokio::net::TcpStream;
+use tokio::io::{AsyncWriteExt, AsyncReadExt};
+use crate::server::LineMessage;
 
 pub mod types;
 pub mod hex;
@@ -59,18 +61,11 @@ impl PartialEq for ClientID {
     }
 }
 
-impl AsRef<ClientID> for Line{
-    fn as_ref(&self) -> &ClientID {
-        self.get_client_id()
-    }
-}
-
 
 #[derive(Debug, Clone)]
 pub enum TopicMessage {
     Content(ClientID, PublishMessage),
     Will(PublishMessage),
-    Exit,
 }
 
 struct Subscript {
@@ -102,13 +97,13 @@ impl Subscript {
         self.container.lock().await.get(topic_name.as_ref()).unwrap().contain(client_id)
     }
 
-    pub async fn new_subscript<S: AsRef<str>, SS: AsRef<ClientID>>(&self, topic_name: S, client_id: SS, sender: Sender<TopicMessage>) {
+    pub async fn new_subscript<S: AsRef<str>, SS: AsRef<ClientID>>(&self, topic_name: S, client_id: SS, sender: Sender<LineMessage>) {
         let mut top = Topic::new(topic_name.as_ref());
         top.subscript(client_id.as_ref(), sender);
         self.add(topic_name.as_ref(), top).await;
     }
 
-    pub fn subscript<S: AsRef<str>, SS: AsRef<ClientID>>(&self, topic_name: S, client_id: SS, sender: Sender<TopicMessage>) {
+    pub fn subscript<S: AsRef<str>, SS: AsRef<ClientID>>(&self, topic_name: S, client_id: SS, sender: Sender<LineMessage>) {
         match self.container.try_lock() {
             Ok(mut container) => {
                 if let Some(t) = container.get_mut(topic_name.as_ref()) {
@@ -148,12 +143,16 @@ impl Subscript {
             t.broadcast(msg).await
         }
     }
+
+    pub async fn get_client<S: AsRef<str>, SS: AsRef<ClientID>>(&self, topic_name: S, client_id: SS) -> Sender<LineMessage> {
+        self.container.lock().await.get(topic_name.as_ref()).unwrap().senders.get(client_id.as_ref()).unwrap().clone()
+    }
 }
 
 #[derive(Debug)]
 pub struct Topic {
     name: String,
-    senders: HashMap<ClientID, Sender<TopicMessage>>,
+    senders: HashMap<ClientID, Sender<LineMessage>>,
 }
 
 impl Topic {
@@ -163,13 +162,13 @@ impl Topic {
 }
 
 impl Topic {
-    pub fn subscript<S: Into<ClientID>>(&mut self, client_id: S, sender: Sender<TopicMessage>) {
+    pub fn subscript<S: Into<ClientID>>(&mut self, client_id: S, sender: Sender<LineMessage>) {
         let id = client_id.into();
         println!("subscript client id: {:?}", &id);
         self.senders.insert(id, sender);
     }
 
-    pub fn unsubscript<S: AsRef<ClientID>>(&mut self, client_id: S) -> Option<Sender<TopicMessage>> {
+    pub fn unsubscript<S: AsRef<ClientID>>(&mut self, client_id: S) -> Option<Sender<LineMessage>> {
         if self.senders.contains_key(client_id.as_ref()) {
             return self.senders.remove(client_id.as_ref());
         }
@@ -186,7 +185,7 @@ impl Topic {
 
     pub async fn broadcast(&self, msg: &TopicMessage) {
         for (_, sender) in self.senders.iter() {
-            sender.send(msg.clone()).await;
+            sender.send(LineMessage::SubscriptionMessage(msg.clone())).await;
         }
     }
 

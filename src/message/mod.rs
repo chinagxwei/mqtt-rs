@@ -7,17 +7,23 @@ use crate::message::v3::{
 };
 use crate::protocol::{MqttProtocolLevel, MqttDup, MqttQos, MqttRetain};
 use crate::message::v3::MqttMessageV3::Pubrec;
+use crate::TopicMessage;
 
 pub mod v3;
 pub mod v5;
 
 #[derive(Debug)]
 pub enum MqttMessageKind {
+    Broadcast(Vec<u8>),
     V3(MqttMessageV3),
     V5,
 }
 
 impl MqttMessageKind {
+    // pub fn is_topic(&self) -> bool {
+    //     matches!(self, MqttMessageKind::Topic(_))
+    // }
+
     pub fn is_v3(&self) -> bool {
         matches!(self, MqttMessageKind::V3(_))
     }

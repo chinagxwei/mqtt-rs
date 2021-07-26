@@ -5,7 +5,12 @@ use crate::message::v3::ConnectMessage;
 
 pub fn pack_string(str: &String) -> Vec<u8> {
     let str = str.as_bytes().to_vec();
-    let head = vec![0_u8, str.len() as u8];
+    let head = (str.len() as u16).to_ne_bytes()
+        .iter()
+        .rev()
+        .cloned()
+        .collect::<Vec<u8>>();
+    // let head = vec![0_u8, str.len() as u8];
     [head, str].concat()
 }
 

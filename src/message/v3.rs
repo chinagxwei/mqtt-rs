@@ -431,18 +431,29 @@ impl MqttBytesMessage for PublishMessage {
 
 impl From<BaseMessage> for PublishMessage {
     fn from(mut base: BaseMessage) -> Self {
-        // let (retain, qos, dup) = get_publish_header(*base.bytes.get(0).unwrap());
         let (topic, last_data) = parse_string(base.bytes.as_slice()).unwrap();
-        // let message_id = parse_short_int(last_data.unwrap());
-        let (message_id, last_data) = parse_short_int(last_data.unwrap());
-        let msg_body = String::from_utf8_lossy(last_data);
+        let (message_id, msg_body) = if base.qos.is_some() {
+            let qos = base.qos.unwrap();
+            if qos > MqttQos::Qos0 {
+                let (message_id, last_data) = parse_short_int(last_data.unwrap());
+                let msg_body = String::from_utf8_lossy(last_data);
+                (message_id, msg_body)
+            } else {
+                let msg_body = String::from_utf8_lossy(last_data.unwrap());
+                (0, msg_body)
+            }
+        } else {
+            let msg_body = String::from_utf8_lossy(last_data.unwrap());
+            (0, msg_body)
+        };
+
         PublishMessage {
             msg_type: base.msg_type,
             message_id,
             topic,
-            dup: base.dup.unwrap(),
-            qos: base.qos.unwrap(),
-            retain: base.retain.unwrap(),
+            dup: base.dup.unwrap_or(MqttDup::Disable),
+            qos: base.qos.unwrap_or(MqttQos::Qos0),
+            retain: base.retain.unwrap_or(MqttRetain::Disable),
             msg_body: msg_body.into_owned(),
             bytes: Some(base.bytes),
         }
@@ -459,6 +470,23 @@ impl PublishMessage {
             qos,
             retain,
             msg_body: message_body,
+            bytes: None,
+        };
+        msg.bytes = Some(Pack::publish(&msg));
+        msg
+    }
+}
+
+impl PublishMessage {
+    pub fn refresh(&self) -> PublishMessage {
+        let mut msg = PublishMessage {
+            msg_type: TypeKind::PUBLISH,
+            message_id: self.message_id,
+            topic: self.topic.clone(),
+            dup: self.dup,
+            qos: self.qos,
+            retain: self.retain,
+            msg_body: self.msg_body.clone(),
             bytes: None,
         };
         msg.bytes = Some(Pack::publish(&msg));

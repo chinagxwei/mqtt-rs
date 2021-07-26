@@ -60,8 +60,6 @@ impl Pack {
     pub fn publish(msg: &PublishMessage) -> Vec<u8> {
         let mut body = pack_string(&msg.topic);
 
-        body.push(msg.qos as u8);
-
         if msg.qos > MqttQos::Qos0 {
             body = [body, pack_message_short_id(msg.message_id)].concat();
         }
