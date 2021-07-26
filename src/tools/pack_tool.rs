@@ -5,13 +5,24 @@ use crate::message::v3::ConnectMessage;
 
 pub fn pack_string(str: &String) -> Vec<u8> {
     let str = str.as_bytes().to_vec();
-    let head = (str.len() as u16).to_ne_bytes()
+    let head = pack_short_int((str.len() as u16));
+    [head, str].concat()
+}
+
+pub fn pack_short_int(data: u16) -> Vec<u8> {
+    data.to_ne_bytes()
         .iter()
         .rev()
         .cloned()
-        .collect::<Vec<u8>>();
-    // let head = vec![0_u8, str.len() as u8];
-    [head, str].concat()
+        .collect::<Vec<u8>>()
+}
+
+pub fn pack_long_int(data: u32) -> Vec<u8> {
+    data.to_ne_bytes()
+        .iter()
+        .rev()
+        .cloned()
+        .collect::<Vec<u8>>()
 }
 
 pub fn pack_message_short_id(message_id: u32) -> Vec<u8> {

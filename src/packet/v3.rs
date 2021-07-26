@@ -1,4 +1,4 @@
-use crate::tools::pack_tool::{pack_protocol_name, pack_connect_flags, pack_client_id, pack_will_topic, pack_will_message, pack_username, pack_password, pack_header, pack_message_short_id, pack_string, pack_publish_header};
+use crate::tools::pack_tool::{pack_protocol_name, pack_connect_flags, pack_client_id, pack_will_topic, pack_will_message, pack_username, pack_password, pack_header, pack_message_short_id, pack_string, pack_publish_header, pack_short_int};
 use crate::protocol::{MqttWillFlag, MqttSessionPresent, MqttQos};
 use crate::hex::reason_code::{ReasonCodes, ReasonCodeV3};
 use crate::types::TypeKind;
@@ -16,17 +16,7 @@ impl Pack {
 
         body.push(pack_connect_flags(msg).unwrap());
 
-        match msg.keep_alive.to_ne_bytes() {
-            [a, 0_u8, 0_u8, 0_u8] => {
-                body.push(0_u8);
-                body.push(a);
-            }
-            [a, b, 0_u8, 0_u8] => {
-                body.push(b);
-                body.push(a);
-            }
-            _ => {}
-        }
+        body = [body, pack_short_int(msg.keep_alive as u16)].concat();
 
         body = [body, pack_client_id(msg)].concat();
 
