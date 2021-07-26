@@ -39,19 +39,19 @@ impl MqttServer {
 
                 tokio::spawn(async move {
                     let mut buf = [0; 1024];
-                    let mut line = Line2::new();
+                    let mut line = Line::new();
                     // In a loop, read data from the socket and write the data back.
                     'end_loop: loop {
                         let res = tokio::select! {
-                                Ok(n) = socket.read(&mut buf) => {
-                                    if n != 0 {
-                                        // println!("length: {}",n);
-                                        line.get_sender().send(LineMessage::SocketMessage(buf[0..n].to_vec())).await;
-                                    }
-                                    None
-                                },
-                                kind = line.recv() => kind,
-                            };
+                            Ok(n) = socket.read(&mut buf) => {
+                                if n != 0 {
+                                    // println!("length: {}",n);
+                                    line.get_sender().send(LineMessage::SocketMessage(buf[0..n].to_vec())).await;
+                                }
+                                None
+                            },
+                            kind = line.recv() => kind,
+                        };
                         if let Some(kind) = res {
                             match kind {
                                 MqttMessageKind::Broadcast(data) => {
@@ -119,7 +119,7 @@ pub enum LineMessage {
     SubscriptionMessage(TopicMessage),
 }
 
-pub struct Line2 {
+pub struct Line {
     sender: Sender<LineMessage>,
     receiver: Receiver<LineMessage>,
     client_id: Option<ClientID>,
@@ -132,10 +132,10 @@ pub struct Line2 {
     will_message: Option<String>,
 }
 
-impl Line2 {
-    pub fn new() -> Line2 {
+impl Line {
+    pub fn new() -> Line {
         let (sender, receiver) = mpsc::channel(128);
-        Line2 {
+        Line {
             sender,
             receiver,
             client_id: None,
@@ -219,7 +219,7 @@ impl Line2 {
     }
 }
 
-async fn handle_v3(line: &mut Line2, kind_opt: Option<&MqttMessageV3>) -> Option<MqttMessageV3> {
+async fn handle_v3(line: &mut Line, kind_opt: Option<&MqttMessageV3>) -> Option<MqttMessageV3> {
     if let Some(kind) = kind_opt {
         match kind {
             MqttMessageV3::Connect(msg) => {
