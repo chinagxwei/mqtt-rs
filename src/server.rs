@@ -54,56 +54,12 @@ impl MqttServer {
                         };
                         if let Some(kind) = res {
                             match kind {
-                                MqttMessageKind::Broadcast(data) => {
-                                    println!("{:?}", line.client_id.as_ref());
-                                    println!("{:?}", data);
-
+                                MqttMessageKind::Response(data) => {
                                     if let Err(e) = socket.write_all(data.as_slice()).await {
                                         println!("failed to write to socket; err = {:?}", e);
                                     }
-                                    println!("send data: {:?}", PublishMessage::from(BaseMessage::from(data)))
                                 }
-                                MqttMessageKind::V3(ref msg) => {
-                                    if let Some(res_msg) = handle_v3(&mut line, Some(msg)).await {
-                                        println!("{:?}", line.client_id.as_ref());
-                                        println!("{:?}", res_msg);
-                                        match res_msg {
-                                            MqttMessageV3::Connack(msg) => {
-                                                if let Err(e) = socket.write_all(msg.as_bytes()).await {
-                                                    println!("failed to write to socket; err = {:?}", e);
-                                                }
-                                            }
-                                            MqttMessageV3::Suback(msg) => {
-                                                if let Err(e) = socket.write_all(msg.as_bytes()).await {
-                                                    println!("failed to write to socket; err = {:?}", e);
-                                                }
-                                            }
-                                            MqttMessageV3::Puback(msg) => {
-                                                if let Err(e) = socket.write_all(msg.as_bytes()).await {
-                                                    println!("failed to write to socket; err = {:?}", e);
-                                                }
-                                            }
-                                            MqttMessageV3::Unsuback(msg) => {
-                                                if let Err(e) = socket.write_all(msg.as_bytes()).await {
-                                                    println!("failed to write to socket; err = {:?}", e);
-                                                }
-                                            }
-                                            MqttMessageV3::Pingresp(msg) => {
-                                                if let Err(e) = socket.write_all(msg.as_bytes()).await {
-                                                    println!("failed to write to socket; err = {:?}", e);
-                                                }
-                                            }
-                                            MqttMessageV3::Disconnect(msg) => {
-                                                if let Err(e) = socket.write_all(msg.as_bytes()).await {
-                                                    println!("failed to write to socket; err = {:?}", e);
-                                                }
-                                                break 'end_loop;
-                                            }
-                                            _ => {}
-                                        }
-                                    }
-                                }
-                                MqttMessageKind::V5 => {}
+                                _=>{}
                             }
                         }
                     }
@@ -188,7 +144,15 @@ impl Line {
                             Some(level) => {
                                 match level {
                                     MqttProtocolLevel::Level3_1_1 => {
-                                        return MqttMessageKind::v3(base_msg);
+                                        let v3_data = MqttMessageKind::v3(base_msg);
+                                        if let Some(v3) = v3_data {
+                                            if v3.is_v3() {
+                                                if let Some(res_msg) = handle_v3(self, v3.get_v3()).await{
+                                                    return Some(MqttMessageKind::Response(res_msg.as_bytes().to_vec()));
+                                                }
+                                            }
+                                        }
+                                        return None;
                                     }
                                     MqttProtocolLevel::Level5 => {
                                         None
@@ -204,12 +168,12 @@ impl Line {
                             TopicMessage::Content(from_id, content) => {
                                 let to_client_id = self.client_id.as_ref().unwrap();
                                 if to_client_id != &from_id {
-                                    return Some(MqttMessageKind::Broadcast(content.as_bytes().to_vec()));
+                                    return Some(MqttMessageKind::Response(content.as_bytes().to_vec()));
                                 }
                                 None
                             }
                             TopicMessage::Will(content) => {
-                                Some(MqttMessageKind::Broadcast(content.as_bytes().to_vec()))
+                                Some(MqttMessageKind::Response(content.as_bytes().to_vec()))
                             }
                         };
                     }

@@ -14,9 +14,9 @@ pub mod v5;
 
 #[derive(Debug)]
 pub enum MqttMessageKind {
-    Broadcast(Vec<u8>),
-    V3(MqttMessageV3),
-    V5,
+    Response(Vec<u8>),
+    RequestV3(MqttMessageV3),
+    RequestV5,
 }
 
 impl MqttMessageKind {
@@ -25,12 +25,12 @@ impl MqttMessageKind {
     // }
 
     pub fn is_v3(&self) -> bool {
-        matches!(self, MqttMessageKind::V3(_))
+        matches!(self, MqttMessageKind::RequestV3(_))
     }
 
     pub fn get_v3(&self) -> Option<&MqttMessageV3> {
         match self {
-            MqttMessageKind::V3(kind) => {
+            MqttMessageKind::RequestV3(kind) => {
                 Some(kind)
             }
             _ => { None }
@@ -41,20 +41,20 @@ impl MqttMessageKind {
 impl MqttMessageKind {
     pub fn v3(base_msg: BaseMessage) -> Option<MqttMessageKind> {
         match base_msg.get_message_type() {
-            TypeKind::CONNECT => { Some(Self::V3(MqttMessageV3::Connect(ConnectMessage::from(base_msg)))) }
-            TypeKind::CONNACK => { Some(Self::V3(MqttMessageV3::Connack(ConnackMessage::from(base_msg)))) }
-            TypeKind::PUBLISH => { Some(Self::V3(MqttMessageV3::Publish(PublishMessage::from(base_msg)))) }
-            TypeKind::PUBACK => { Some(Self::V3(MqttMessageV3::Puback(PubackMessage::from(base_msg)))) }
-            TypeKind::PUBREC => { Some(Self::V3(MqttMessageV3::Pubrec(PubrecMessage::from(base_msg)))) }
-            TypeKind::PUBREL => { Some(Self::V3(MqttMessageV3::Pubrel(PubrelMessage::from(base_msg)))) }
-            TypeKind::PUBCOMP => { Some(Self::V3(MqttMessageV3::Pubcomp(PubcompMessage::from(base_msg)))) }
-            TypeKind::SUBSCRIBE => { Some(Self::V3(MqttMessageV3::Subscribe(SubscribeMessage::from(base_msg)))) }
-            // TypeKind::SUBACK => { Some(Self::V3(MqttMessageV3::Suback(SubackMessage::from(base_msg)))) }
-            TypeKind::UNSUBSCRIBE => { Some(Self::V3(MqttMessageV3::Unsubscribe(UnsubscribeMessage::from(base_msg)))) }
-            TypeKind::UNSUBACK => { Some(Self::V3(MqttMessageV3::Unsuback(UnsubackMessage::from(base_msg)))) }
-            // TypeKind::PINGREQ => { Some(Self::V3(MqttMessageV3::Pingreq(PingreqMessage::from(base_msg)))) }
-            TypeKind::PINGREQ => { Some(Self::V3(MqttMessageV3::Pingresp(PingrespMessage::default()))) }
-            TypeKind::DISCONNECT => { Some(Self::V3(MqttMessageV3::Disconnect((DisconnectMessage::default())))) }
+            TypeKind::CONNECT => { Some(Self::RequestV3(MqttMessageV3::Connect(ConnectMessage::from(base_msg)))) }
+            TypeKind::CONNACK => { Some(Self::RequestV3(MqttMessageV3::Connack(ConnackMessage::from(base_msg)))) }
+            TypeKind::PUBLISH => { Some(Self::RequestV3(MqttMessageV3::Publish(PublishMessage::from(base_msg)))) }
+            TypeKind::PUBACK => { Some(Self::RequestV3(MqttMessageV3::Puback(PubackMessage::from(base_msg)))) }
+            TypeKind::PUBREC => { Some(Self::RequestV3(MqttMessageV3::Pubrec(PubrecMessage::from(base_msg)))) }
+            TypeKind::PUBREL => { Some(Self::RequestV3(MqttMessageV3::Pubrel(PubrelMessage::from(base_msg)))) }
+            TypeKind::PUBCOMP => { Some(Self::RequestV3(MqttMessageV3::Pubcomp(PubcompMessage::from(base_msg)))) }
+            TypeKind::SUBSCRIBE => { Some(Self::RequestV3(MqttMessageV3::Subscribe(SubscribeMessage::from(base_msg)))) }
+            // TypeKind::SUBACK => { Some(Self::RequestV3(MqttMessageV3::Suback(SubackMessage::from(base_msg)))) }
+            TypeKind::UNSUBSCRIBE => { Some(Self::RequestV3(MqttMessageV3::Unsubscribe(UnsubscribeMessage::from(base_msg)))) }
+            TypeKind::UNSUBACK => { Some(Self::RequestV3(MqttMessageV3::Unsuback(UnsubackMessage::from(base_msg)))) }
+            // TypeKind::PINGREQ => { Some(Self::RequestV3(MqttMessageV3::Pingreq(PingreqMessage::from(base_msg)))) }
+            TypeKind::PINGREQ => { Some(Self::RequestV3(MqttMessageV3::Pingresp(PingrespMessage::default()))) }
+            TypeKind::DISCONNECT => { Some(Self::RequestV3(MqttMessageV3::Disconnect((DisconnectMessage::default())))) }
             TypeKind::AUTH => { None }
             _ => { None }
         }
@@ -73,9 +73,9 @@ pub trait MqttBytesMessage: MqttMessage {
 #[derive(Debug)]
 pub struct BaseMessage {
     pub msg_type: TypeKind,
-    pub dup:Option<MqttDup>,
-    pub qos:Option<MqttQos>,
-    pub retain:Option<MqttRetain>,
+    pub dup: Option<MqttDup>,
+    pub qos: Option<MqttQos>,
+    pub retain: Option<MqttRetain>,
     pub bytes: Vec<u8>,
 }
 
@@ -87,14 +87,14 @@ impl MqttMessage for BaseMessage {
 
 impl From<Vec<u8>> for BaseMessage {
     fn from(data: Vec<u8>) -> Self {
-        let (mut r#type2,retain, qos, dup, last_bytes) = get_type(data.as_slice());
+        let (mut r#type2, retain, qos, dup, last_bytes) = get_type(data.as_slice());
         BaseMessage { msg_type: r#type2.take().unwrap(), dup, qos, retain, bytes: last_bytes.to_vec() }
     }
 }
 
 impl From<&[u8]> for BaseMessage {
     fn from(data: &[u8]) -> Self {
-        let (mut r#type2,retain, qos, dup, last_bytes) = get_type(data);
+        let (mut r#type2, retain, qos, dup, last_bytes) = get_type(data);
         BaseMessage { msg_type: r#type2.take().unwrap(), dup, qos, retain, bytes: last_bytes.to_vec() }
     }
 }

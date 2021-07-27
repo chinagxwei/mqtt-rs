@@ -400,7 +400,6 @@ impl UnsubackMessage {
 impl From<BaseMessage> for UnsubackMessage {
     fn from(mut base: BaseMessage) -> Self {
         let (message_id, _) = parse_short_int(base.bytes.as_slice());
-        // let message_id = parse_short_int(base.bytes.as_slice().get(2..=3).unwrap());
         UnsubackMessage { msg_type: base.msg_type, message_id, bytes: Some(base.bytes) }
     }
 }
@@ -605,7 +604,6 @@ impl PubrelMessage {
 
 impl From<BaseMessage> for PubrelMessage {
     fn from(mut base: BaseMessage) -> Self {
-        // let message_id = parse_short_int(base.bytes.get(2..base.bytes.len()).unwrap());
         let (message_id, _) = parse_short_int(base.bytes.as_slice());
         PubrelMessage { msg_type: base.msg_type, message_id, bytes: Some(base.bytes) }
     }
@@ -644,7 +642,6 @@ impl PubcompMessage {
 
 impl From<BaseMessage> for PubcompMessage {
     fn from(mut base: BaseMessage) -> Self {
-        // let message_id = parse_short_int(base.bytes.get(2..base.bytes.len()).unwrap());
         let (message_id, _) = parse_short_int(base.bytes.as_slice());
         PubcompMessage { msg_type: base.msg_type, message_id, bytes: Some(base.bytes) }
     }
