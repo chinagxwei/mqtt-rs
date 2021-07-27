@@ -184,15 +184,9 @@ async fn handle_v3(line: &mut Line, kind_opt: Option<&MqttMessageV3>) -> Option<
         match kind {
             MqttMessageV3::Connect(msg) => {
                 line.init(msg);
-                // if let Err(e) = self.socket.lock().await.write_all(ConnackMessage::default().as_bytes()).await {
-                //     println!("failed to write to socket; err = {:?}", e);
-                // }
                 return Some(MqttMessageV3::Connack(ConnackMessage::default()));
             }
             // MqttMessageV3::Puback(msg) => {
-            //     if let Err(e) = self.socket.lock().await.write_all(msg.as_bytes()).await {
-            //         println!("failed to write to socket; err = {:?}", e);
-            //     }
             // }
             MqttMessageV3::Subscribe(msg) => {
                 println!("{:?}", msg);
@@ -208,18 +202,12 @@ async fn handle_v3(line: &mut Line, kind_opt: Option<&MqttMessageV3>) -> Option<
                 let sm = SubackMessage::from(msg.clone());
                 println!("{:?}", sm);
                 return Some(MqttMessageV3::Suback(sm));
-                // if let Err(e) = self.socket.lock().await.write_all(sm.as_bytes()).await {
-                //     println!("failed to write to socket; err = {:?}", e);
-                // }
             }
             MqttMessageV3::Unsubscribe(msg) => {
                 println!("topic name: {}", &msg.topic);
                 if SUBSCRIPT.contain(&msg.topic).await {
                     if SUBSCRIPT.is_subscript(&msg.topic, line.client_id.as_ref().unwrap().as_ref()).await {
                         SUBSCRIPT.unsubscript(&msg.topic, line.client_id.as_ref().unwrap().as_ref()).await;
-                        // if let Err(e) = self.socket.lock().await.write_all(UnsubackMessage::new(msg.message_id).as_bytes()).await {
-                        //     println!("failed to write to socket; err = {:?}", e);
-                        // }
                         return Some(MqttMessageV3::Unsuback(UnsubackMessage::new(msg.message_id)));
                     }
                 }
