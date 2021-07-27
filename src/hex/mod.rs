@@ -1,10 +1,21 @@
 use num_enum::TryFromPrimitive;
 use crate::types::TypeKind;
 use std::convert::{TryFrom, Infallible};
-use std::option::Option::Some;
-use crate::tools::un_pack_tool::parse_long_int;
+use crate::tools::un_pack_tool::{parse_long_int, parse_string, parse_byte, parse_short_int, get_remaining_data, get_remaining_length, var_int};
 
 pub mod reason_code;
+
+#[derive(Debug, Clone)]
+pub enum PropertyValue {
+    Long(u32),
+    Short(u16),
+    Byte(u8),
+    String(String),
+    Map(String, String),
+}
+
+#[derive(Debug, Clone)]
+pub struct PropertyItem(Property, PropertyValue);
 
 #[derive(Debug, Copy, Clone, TryFromPrimitive)]
 #[repr(u8)]
@@ -81,26 +92,162 @@ impl Property {
             Property::RequestProblemInformation |
             Property::RequestResponseInformation |
             Property::ReceiveMaximum |
+            Property::TopicAlias |
             Property::UserProperty |
             Property::MaximumPacketSize => { true }
             _ => { false }
         }
     }
 
-    pub fn connect_property_handle(&self, length: u32, data: &[u8]) -> bool {
+    pub fn is_connack_property(&self) -> bool {
         match self {
-            Property::SessionExpiryInterval => {
-                parse_long_int(data);
-                true
-            }
-            Property::AuthenticationMethod => { true }
-            Property::AuthenticationData => { true }
-            Property::RequestProblemInformation => { true }
-            Property::RequestResponseInformation => { true }
-            Property::ReceiveMaximum => { true }
-            Property::UserProperty => { true }
-            Property::MaximumPacketSize => { true }
+            Property::SessionExpiryInterval |
+            Property::AssignedClientIdentifier |
+            Property::ServerKeepAlive |
+            Property::AuthenticationMethod |
+            Property::AuthenticationData |
+            Property::ResponseInformation |
+            Property::ServerReference |
+            Property::ReasonString |
+            Property::ReceiveMaximum |
+            Property::TopicAliasMaximum |
+            Property::MaximumQos |
+            Property::RetainAvailable |
+            Property::UserProperty |
+            Property::MaximumPacketSize |
+            Property::WildcardSubscriptionAvailable |
+            Property::SubscriptionIdentifierAvailable |
+            Property::SharedSubscriptionAvailable => { true }
             _ => { false }
+        }
+    }
+
+    pub fn is_publish_property(&self) -> bool {
+        match self {
+            Property::PayloadFormatIndicator |
+            Property::MessageExpiryInterval |
+            Property::ContentType |
+            Property::ResponseTopic |
+            Property::CorrelationData |
+            Property::SubscriptionIdentifier |
+            Property::TopicAlias |
+            Property::UserProperty => { true }
+            _ => { false }
+        }
+    }
+
+    pub fn is_pub_and_sub_property(&self) -> bool {
+        match self {
+            Property::ReasonString |
+            Property::UserProperty => { true }
+            _ => { false }
+        }
+    }
+
+    pub fn is_subscribe_property(&self) -> bool {
+        match self {
+            Property::SubscriptionIdentifier |
+            Property::UserProperty => { true }
+            _ => { false }
+        }
+    }
+
+    pub fn is_unsubscribe_property(&self) -> bool {
+        match self {
+            Property::UserProperty => { true }
+            _ => { false }
+        }
+    }
+
+    pub fn is_disconnect_property(&self) -> bool {
+        match self {
+            Property::SessionExpiryInterval |
+            Property::ServerReference |
+            Property::ReasonString |
+            Property::UserProperty => { true }
+            _ => { false }
+        }
+    }
+
+    pub fn is_auth_property(&self) -> bool {
+        match self {
+            Property::AuthenticationMethod |
+            Property::AuthenticationData |
+            Property::ReasonString |
+            Property::UserProperty => { true }
+            _ => { false }
+        }
+    }
+
+    pub fn is_will_properties(&self) -> bool {
+        match self {
+            Property::PayloadFormatIndicator |
+            Property::MessageExpiryInterval |
+            Property::ContentType |
+            Property::ResponseTopic |
+            Property::CorrelationData |
+            Property::WillDelayInterval |
+            Property::UserProperty => { true }
+            _ => { false }
+        }
+    }
+
+    pub fn property_handle<'a, 'b>(&self, length: &'a mut u32, data: &'b [u8]) -> Option<(PropertyItem, &'b [u8])> {
+        match self {
+            Property::SessionExpiryInterval |
+            Property::MessageExpiryInterval |
+            Property::WillDelayInterval |
+            Property::MaximumPacketSize => {
+                let (val, last_data) = parse_long_int(data);
+                *length -= 5;
+                Some((PropertyItem(Property::SessionExpiryInterval, PropertyValue::Long(val)), last_data))
+            }
+            Property::ContentType |
+            Property::ResponseTopic |
+            Property::CorrelationData |
+            Property::AssignedClientIdentifier |
+            Property::ResponseInformation |
+            Property::ServerReference |
+            Property::ReasonString |
+            Property::AuthenticationMethod |
+            Property::AuthenticationData => {
+                let (val, last_data) = parse_string(data).unwrap();
+                *length -= (val.len() as u32 + 3);
+                Some((PropertyItem(*self, PropertyValue::String(val)), last_data.unwrap()))
+            }
+            Property::PayloadFormatIndicator |
+            Property::MaximumQos |
+            Property::RetainAvailable |
+            Property::WildcardSubscriptionAvailable |
+            Property::SubscriptionIdentifierAvailable |
+            Property::SharedSubscriptionAvailable |
+            Property::RequestProblemInformation |
+            Property::RequestResponseInformation => {
+                let (val, last_data) = parse_byte(data);
+                *length -= 2;
+                Some((PropertyItem(*self, PropertyValue::Byte(val)), last_data))
+            }
+            Property::ServerKeepAlive |
+            Property::ReceiveMaximum |
+            Property::TopicAlias |
+            Property::TopicAliasMaximum => {
+                let (val, last_data) = parse_short_int(data);
+                *length -= 3;
+                Some((PropertyItem(*self, PropertyValue::Short(val)), last_data))
+            }
+            Property::UserProperty => {
+                let (user_key, last_data) = parse_string(data).unwrap();
+                let (user_value, last_data) = parse_string(last_data.unwrap()).unwrap();
+                *length -= 5;
+                *length -= user_key.len() as u32;
+                *length -= user_value.len() as u32;
+                Some((PropertyItem(Property::UserProperty, PropertyValue::Map(user_key, user_value)), last_data.unwrap()))
+            }
+            Property::SubscriptionIdentifier => {
+                let (val, last_data) = var_int(data);
+                *length -= (val.len() as u32 + 1);
+                Some((PropertyItem(Property::SubscriptionIdentifier, PropertyValue::String(val)), last_data))
+            }
         }
     }
 }
@@ -142,15 +289,17 @@ impl Property {
 pub struct UnPackProperty;
 
 impl UnPackProperty {
-    pub fn connect(mut length: u32, data: &[u8]) {
-        // let mut properties = vec![];
-        // loop {
+    pub fn connect(mut length: u32, mut data: &[u8]) -> Vec<PropertyItem> {
+        let mut properties = vec![];
+        loop {
             let property = data[0];
-
             match Property::try_from(property) {
                 Ok(p) => {
                     if p.is_connect_property() {
-                        p.connect_property_handle(length, data);
+                        if let Some((item, last_data)) = p.property_handle(&mut length, data.get(1..).unwrap()) {
+                            data = last_data;
+                            properties.push(item);
+                        }
                     } else {
                         // return Err(format!("Property 0x{:X} not exist",property));
                     }
@@ -161,11 +310,12 @@ impl UnPackProperty {
             }
 
             println!("{}", property);
-        //     if length <= 0 {
-        //         break;
-        //     }
-        // }
 
-        // properties
+            if length <= 0 {
+                break;
+            }
+        }
+        println!("{:?}", properties);
+        properties
     }
 }

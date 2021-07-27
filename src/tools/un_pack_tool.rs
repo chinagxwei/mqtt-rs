@@ -59,7 +59,7 @@ pub fn get_connect_payload_data(data: &[u8], will_flag: MqttWillFlag, username_f
 pub fn get_connect_variable_header(data: &[u8])
                                    -> (
                                        (
-                                           Option<String>, Option<u32>, Option<MqttProtocolLevel>,
+                                           Option<String>, Option<u16>, Option<MqttProtocolLevel>,
                                            Option<MqttCleanSession>, Option<MqttWillFlag>, Option<MqttQos>,
                                            Option<MqttRetain>, Option<MqttPasswordFlag>, Option<MqttUsernameFlag>
                                        ),
@@ -94,22 +94,22 @@ pub fn parse_byte(data: &[u8]) -> (u8, &[u8]) {
     (data[0], data.get(1..).unwrap())
 }
 
-pub fn parse_short_int(data: &[u8]) -> (u32, &[u8]) {
+pub fn parse_short_int(data: &[u8]) -> (u16, &[u8]) {
     println!("parse_short_int: {:?}", data.get(..2).unwrap());
     let bytes = data.get(..2).unwrap();
     let short_int_bytes = bytes.iter().rev().cloned().collect::<Vec<u8>>();
-    let short_int = u16::from_le_bytes(short_int_bytes.try_into().unwrap()) as u32;
+    let short_int = u16::from_le_bytes(short_int_bytes.try_into().unwrap());
     println!("short int: {}", short_int);
     (short_int, data.get(2..).unwrap())
 }
 
 pub fn parse_long_int(data: &[u8]) -> (u32, &[u8]) {
-    println!("parse_long_int: {:?}", data.get(1..5).unwrap());
-    let bytes = data.get(1..5).unwrap();
+    println!("parse_long_int: {:?}", data.get(..4).unwrap());
+    let bytes = data.get(..4).unwrap();
     let long_int_bytes = bytes.iter().rev().cloned().collect::<Vec<u8>>();
     let long_int = u32::from_le_bytes(long_int_bytes.try_into().unwrap());
     println!("long int: {}", long_int);
-    (long_int, data.get(5..).unwrap())
+    (long_int, data.get(4..).unwrap())
 }
 
 pub fn parse_string(data: &[u8]) -> Result<(String, Option<&[u8]>), &str> {
@@ -122,8 +122,9 @@ pub fn parse_string(data: &[u8]) -> Result<(String, Option<&[u8]>), &str> {
 }
 
 
-fn get_remaining_length(data: &[u8]) -> Result<(usize, usize), &'static str> {
+pub fn get_remaining_length(data: &[u8]) -> Result<(usize, usize), &'static str> {
     let (ref mut head_index, mut digit, mut multiplier, mut value) = (1_usize, 0, 1, 0);
+
     loop {
         digit = data[*head_index] & 127;
         value += digit as usize * multiplier;
@@ -132,10 +133,9 @@ fn get_remaining_length(data: &[u8]) -> Result<(usize, usize), &'static str> {
         }
         multiplier *= 128;
         *head_index += 1;
-        if (digit & 128) == 0 {
-            break;
-        }
+        if (digit & 128) == 0 { break; }
     }
+
     Ok((value, *head_index))
 }
 
@@ -148,6 +148,18 @@ pub fn get_remaining_data(data: &[u8]) -> &[u8] {
     // println!("remaining_length: {}", remaining_length);
     // println!("last_data: {:?}", data.get(head_bytes..(remaining_length + head_bytes)).unwrap());
     data.get(head_bytes..(remaining_length + head_bytes)).unwrap()
+}
+
+pub fn var_int(data: &[u8]) -> (String, &[u8]) {
+    let (remaining_length, head_bytes) = get_remaining_length(data).unwrap();
+    let (mut result, mut shift) = (0, 0);
+
+    for i in 0..head_bytes {
+        shift += 1;
+        result |= (data[i] & 127) << (shift * 7);
+    }
+    let val = String::from_utf8_lossy(data.get(head_bytes..(remaining_length + head_bytes)).unwrap()).into_owned();
+    (val, data.get((remaining_length + head_bytes)..).unwrap())
 }
 
 #[cfg(test)]

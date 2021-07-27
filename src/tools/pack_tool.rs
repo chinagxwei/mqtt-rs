@@ -25,8 +25,8 @@ pub fn pack_long_int(data: u32) -> Vec<u8> {
         .collect::<Vec<u8>>()
 }
 
-pub fn pack_message_short_id(message_id: u32) -> Vec<u8> {
-    (message_id as u16)
+pub fn pack_message_short_id(message_id: u16) -> Vec<u8> {
+    message_id
         .to_ne_bytes()
         .iter()
         .rev()
@@ -116,18 +116,19 @@ pub fn pack_password(msg: &ConnectMessage) -> Option<Vec<u8>> {
 }
 
 fn pack_remaining_length(mut length: usize) -> Vec<u8> {
+
     let mut remaining = vec![];
+
     loop {
         let mut digit = length % 128;
-        length = length >> 7;
+        length = length / 128;
         if length > 0 {
             digit = (digit | 128);
         }
         remaining.push(digit as u8);
-        if length <= 0 {
-            break;
-        }
+        if length <= 0 { break; }
     }
+
     remaining
 }
 

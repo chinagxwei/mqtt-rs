@@ -43,6 +43,7 @@ impl ReasonCodeV3 {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
 pub enum ReasonCodes {
     V3(ReasonCodeV3),
     V5(ReasonCodeV5),
@@ -72,8 +73,9 @@ impl ReasonCodes {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
 pub enum ReasonCodeV5 {
-    General()
+    General
 }
 
 #[derive(Debug, Copy, Clone, TryFromPrimitive)]

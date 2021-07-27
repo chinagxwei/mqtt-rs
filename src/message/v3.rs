@@ -113,7 +113,7 @@ pub struct ConnectMessage {
     pub will_flag: MqttWillFlag,
     pub will_qos: MqttQos,
     pub will_retain: MqttRetain,
-    pub keep_alive: u32,
+    pub keep_alive: u16,
     pub payload: ConnectMessagePayload,
     pub bytes: Option<Vec<u8>>,
 }
@@ -227,7 +227,7 @@ impl ConnackMessage {
 #[derive(Debug, Clone)]
 pub struct SubscribeMessage {
     pub msg_type: TypeKind,
-    pub message_id: u32,
+    pub message_id: u16,
     pub topic: String,
     pub qos: MqttQos,
     pub bytes: Option<Vec<u8>>,
@@ -261,7 +261,7 @@ impl From<BaseMessage> for SubscribeMessage {
 }
 
 impl SubscribeMessage {
-    pub fn new(message_id: u32, topic: String, qos: MqttQos) -> Self {
+    pub fn new(message_id: u16, topic: String, qos: MqttQos) -> Self {
         let mut msg = SubscribeMessage {
             msg_type: TypeKind::SUBSCRIBE,
             message_id,
@@ -277,7 +277,7 @@ impl SubscribeMessage {
 #[derive(Debug, Clone)]
 pub struct SubackMessage {
     pub msg_type: TypeKind,
-    pub message_id: u32,
+    pub message_id: u16,
     pub qos: MqttQos,
     pub bytes: Option<Vec<u8>>,
 }
@@ -295,7 +295,7 @@ impl MqttBytesMessage for SubackMessage {
 }
 
 impl SubackMessage {
-    pub fn new(message_id: u32, qos: MqttQos) -> Self {
+    pub fn new(message_id: u16, qos: MqttQos) -> Self {
         let mut msg = SubackMessage {
             msg_type: TypeKind::SUBACK,
             message_id,
@@ -323,7 +323,7 @@ impl From<SubscribeMessage> for SubackMessage {
 #[derive(Debug, Clone)]
 pub struct UnsubscribeMessage {
     pub msg_type: TypeKind,
-    pub message_id: u32,
+    pub message_id: u16,
     pub topic: String,
     pub bytes: Option<Vec<u8>>,
 }
@@ -354,7 +354,7 @@ impl From<BaseMessage> for UnsubscribeMessage {
 }
 
 impl UnsubscribeMessage {
-    pub fn new(message_id: u32, topic: String) -> Self {
+    pub fn new(message_id: u16, topic: String) -> Self {
         let mut msg = UnsubscribeMessage {
             msg_type: TypeKind::UNSUBSCRIBE,
             message_id,
@@ -369,7 +369,7 @@ impl UnsubscribeMessage {
 #[derive(Debug, Clone)]
 pub struct UnsubackMessage {
     pub msg_type: TypeKind,
-    pub message_id: u32,
+    pub message_id: u16,
     pub bytes: Option<Vec<u8>>,
 }
 
@@ -386,7 +386,7 @@ impl MqttBytesMessage for UnsubackMessage {
 }
 
 impl UnsubackMessage {
-    pub fn new(message_id: u32) -> Self {
+    pub fn new(message_id: u16) -> Self {
         let mut msg = UnsubackMessage {
             msg_type: TypeKind::UNSUBACK,
             message_id,
@@ -407,7 +407,7 @@ impl From<BaseMessage> for UnsubackMessage {
 #[derive(Debug, Clone)]
 pub struct PublishMessage {
     pub msg_type: TypeKind,
-    pub message_id: u32,
+    pub message_id: u16,
     pub topic: String,
     pub dup: MqttDup,
     pub qos: MqttQos,
@@ -460,7 +460,7 @@ impl From<BaseMessage> for PublishMessage {
 }
 
 impl PublishMessage {
-    pub fn new(qos: MqttQos, dup: MqttDup, retain: MqttRetain, topic: String, message_id: u32, message_body: String) -> PublishMessage {
+    pub fn new(qos: MqttQos, dup: MqttDup, retain: MqttRetain, topic: String, message_id: u16, message_body: String) -> PublishMessage {
         let mut msg = PublishMessage {
             msg_type: TypeKind::PUBLISH,
             message_id,
@@ -496,7 +496,7 @@ impl PublishMessage {
 #[derive(Debug, Clone)]
 pub struct PubackMessage {
     msg_type: TypeKind,
-    pub message_id: u32,
+    pub message_id: u16,
     pub bytes: Option<Vec<u8>>,
 }
 
@@ -513,7 +513,7 @@ impl MqttBytesMessage for PubackMessage {
 }
 
 impl PubackMessage {
-    pub fn new(message_id: u32) -> Self {
+    pub fn new(message_id: u16) -> Self {
         let mut msg = PubackMessage {
             msg_type: TypeKind::PUBACK,
             message_id,
@@ -535,7 +535,7 @@ impl From<BaseMessage> for PubackMessage {
 #[derive(Debug, Clone)]
 pub struct PubrecMessage {
     msg_type: TypeKind,
-    pub message_id: u32,
+    pub message_id: u16,
     pub bytes: Option<Vec<u8>>,
 }
 
@@ -552,7 +552,7 @@ impl MqttBytesMessage for PubrecMessage {
 }
 
 impl PubrecMessage {
-    pub fn new(message_id: u32) -> Self {
+    pub fn new(message_id: u16) -> Self {
         let mut msg = PubrecMessage {
             msg_type: TypeKind::PUBREC,
             message_id,
@@ -574,7 +574,7 @@ impl From<BaseMessage> for PubrecMessage {
 #[derive(Debug, Clone)]
 pub struct PubrelMessage {
     msg_type: TypeKind,
-    pub message_id: u32,
+    pub message_id: u16,
     pub bytes: Option<Vec<u8>>,
 }
 
@@ -591,7 +591,7 @@ impl MqttBytesMessage for PubrelMessage {
 }
 
 impl PubrelMessage {
-    pub fn new(message_id: u32) -> Self {
+    pub fn new(message_id: u16) -> Self {
         let mut msg = PubrelMessage {
             msg_type: TypeKind::PUBREL,
             message_id,
@@ -612,7 +612,7 @@ impl From<BaseMessage> for PubrelMessage {
 #[derive(Debug, Clone)]
 pub struct PubcompMessage {
     msg_type: TypeKind,
-    pub message_id: u32,
+    pub message_id: u16,
     pub bytes: Option<Vec<u8>>,
 }
 
@@ -629,7 +629,7 @@ impl MqttBytesMessage for PubcompMessage {
 }
 
 impl PubcompMessage {
-    pub fn new(message_id: u32) -> Self {
+    pub fn new(message_id: u16) -> Self {
         let mut msg = PubcompMessage {
             msg_type: TypeKind::PUBCOMP,
             message_id,

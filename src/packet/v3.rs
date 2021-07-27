@@ -93,7 +93,7 @@ impl Pack {
         [head, body].concat()
     }
 
-    pub fn not_payload(message_id: u32, msg_type: TypeKind) -> Vec<u8> {
+    pub fn not_payload(message_id: u16, msg_type: TypeKind) -> Vec<u8> {
         let mut body = pack_message_short_id(message_id);
 
         let head = pack_header(msg_type, body.len());
@@ -137,13 +137,13 @@ impl Unpcak {
 
         ConnectMessage {
             msg_type: base.msg_type,
-            protocol_name: protocol_name.take().unwrap(),
-            protocol_level: protocol_level.take().unwrap(),
-            clean_session: clean_session.take().unwrap(),
-            will_flag: will_flag.take().unwrap(),
-            will_qos: will_qos.take().unwrap(),
-            will_retain: will_retain.take().unwrap(),
-            keep_alive: keep_alive.take().unwrap(),
+            protocol_name: protocol_name.unwrap(),
+            protocol_level: protocol_level.unwrap(),
+            clean_session: clean_session.unwrap(),
+            will_flag: will_flag.unwrap(),
+            will_qos: will_qos.unwrap(),
+            will_retain: will_retain.unwrap(),
+            keep_alive: keep_alive.unwrap(),
             payload: ConnectMessagePayload {
                 client_id,
                 will_topic,
