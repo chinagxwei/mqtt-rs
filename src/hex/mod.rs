@@ -192,7 +192,7 @@ impl Property {
         }
     }
 
-    pub fn property_handle<'a, 'b>(&self, length: &'a mut u32, data: &'b [u8]) -> Option<(PropertyItem, &'b [u8])> {
+    pub fn property_handle<'a>(&self, length: &mut u32, data: &'a [u8]) -> Option<(PropertyItem, &'a [u8])> {
         match self {
             Property::SessionExpiryInterval |
             Property::MessageExpiryInterval |
@@ -238,9 +238,7 @@ impl Property {
             Property::UserProperty => {
                 let (user_key, last_data) = parse_string(data).unwrap();
                 let (user_value, last_data) = parse_string(last_data.unwrap()).unwrap();
-                *length -= 5;
-                *length -= user_key.len() as u32;
-                *length -= user_value.len() as u32;
+                *length -= (user_key.len() as u32 + user_value.len() as u32 + 5);
                 Some((PropertyItem(Property::UserProperty, PropertyValue::Map(user_key, user_value)), last_data.unwrap()))
             }
             Property::SubscriptionIdentifier => {
@@ -248,40 +246,6 @@ impl Property {
                 *length -= (val.len() as u32 + 1);
                 Some((PropertyItem(Property::SubscriptionIdentifier, PropertyValue::String(val)), last_data))
             }
-        }
-    }
-}
-
-impl Property {
-    pub fn handle_property(&self) {
-        match self {
-            Property::PayloadFormatIndicator => {}
-            Property::MessageExpiryInterval => {}
-            Property::ContentType => {}
-            Property::ResponseTopic => {}
-            Property::CorrelationData => {}
-            Property::SubscriptionIdentifier => {}
-            Property::SessionExpiryInterval => {}
-            Property::AssignedClientIdentifier => {}
-            Property::ServerKeepAlive => {}
-            Property::AuthenticationMethod => {}
-            Property::AuthenticationData => {}
-            Property::RequestProblemInformation => {}
-            Property::WillDelayInterval => {}
-            Property::RequestResponseInformation => {}
-            Property::ResponseInformation => {}
-            Property::ServerReference => {}
-            Property::ReasonString => {}
-            Property::ReceiveMaximum => {}
-            Property::TopicAliasMaximum => {}
-            Property::TopicAlias => {}
-            Property::MaximumQos => {}
-            Property::RetainAvailable => {}
-            Property::UserProperty => {}
-            Property::MaximumPacketSize => {}
-            Property::WildcardSubscriptionAvailable => {}
-            Property::SubscriptionIdentifierAvailable => {}
-            Property::SharedSubscriptionAvailable => {}
         }
     }
 }
