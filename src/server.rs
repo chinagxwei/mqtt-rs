@@ -59,7 +59,7 @@ impl MqttServer {
                                         println!("failed to write to socket; err = {:?}", e);
                                     }
                                 }
-                                _=>{}
+                                _ => {}
                             }
                         }
                     }
@@ -139,28 +139,24 @@ impl Line {
                             let connect = BaseConnect::from(&base_msg);
                             self.init_protocol(connect.get_protocol_name(), connect.get_protocol_level());
                         }
-                        match self.protocol_level {
-                            None => { None }
-                            Some(level) => {
-                                match level {
-                                    MqttProtocolLevel::Level3_1_1 => {
-                                        let v3_data = MqttMessageKind::v3(base_msg);
-                                        if let Some(v3) = v3_data {
-                                            if v3.is_v3() {
-                                                if let Some(res_msg) = handle_v3(self, v3.get_v3()).await{
-                                                    return Some(MqttMessageKind::Response(res_msg.as_bytes().to_vec()));
-                                                }
+
+                        if let Some(level) = self.protocol_level {
+                            return match level {
+                                MqttProtocolLevel::Level3_1_1 => {
+                                    if let Some(v3) = MqttMessageKind::v3(base_msg) {
+                                        if v3.is_v3() {
+                                            if let Some(res_msg) = handle_v3(self, v3.get_v3()).await {
+                                                return Some(MqttMessageKind::Response(res_msg.as_bytes().to_vec()));
                                             }
                                         }
-                                        return None;
                                     }
-                                    MqttProtocolLevel::Level5 => {
-                                        None
-                                    }
-                                    _ => { None }
+                                    None
                                 }
-                            }
+                                MqttProtocolLevel::Level5 => { None }
+                                _ => { None }
+                            };
                         }
+                        None
                     }
                     LineMessage::SubscriptionMessage(msg) => {
                         println!("subscription msg");

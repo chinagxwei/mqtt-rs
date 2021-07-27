@@ -20,10 +20,6 @@ pub enum MqttMessageKind {
 }
 
 impl MqttMessageKind {
-    // pub fn is_topic(&self) -> bool {
-    //     matches!(self, MqttMessageKind::Topic(_))
-    // }
-
     pub fn is_v3(&self) -> bool {
         matches!(self, MqttMessageKind::RequestV3(_))
     }
