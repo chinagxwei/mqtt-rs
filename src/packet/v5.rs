@@ -8,20 +8,7 @@ pub struct Unpcak;
 impl Unpcak {
     pub fn connect(mut base: BaseMessage) -> ConnectMessage {
         let message_bytes = base.bytes.as_slice();
-        let (
-            (
-                mut protocol_name,
-                mut keep_alive,
-                mut protocol_level,
-                mut clean_session,
-                mut will_flag,
-                mut will_qos,
-                mut will_retain,
-                mut password_flag,
-                mut username_flag
-            ),
-            last_data
-        ) = get_connect_variable_header(message_bytes);
+        let (mut variable_header, last_data) = get_connect_variable_header(message_bytes);
 
         println!("v5 {:?}", last_data);
 
@@ -47,21 +34,21 @@ impl Unpcak {
             password
         ) = get_connect_payload_data(
             last_data,
-            will_flag.unwrap(),
-            username_flag.unwrap(),
-            password_flag.unwrap(),
+            variable_header.will_flag.unwrap(),
+            variable_header.username_flag.unwrap(),
+            variable_header.password_flag.unwrap(),
         );
 
         println!("client ID: {}", client_id);
         ConnectMessage {
             msg_type: base.msg_type,
-            protocol_name: protocol_name.unwrap(),
-            protocol_level: protocol_level.unwrap(),
-            clean_session: clean_session.unwrap(),
-            will_flag: will_flag.unwrap(),
-            will_qos: will_qos.unwrap(),
-            will_retain: will_retain.unwrap(),
-            keep_alive: keep_alive.unwrap(),
+            protocol_name: variable_header.protocol_name.unwrap(),
+            protocol_level: variable_header.protocol_level.unwrap(),
+            clean_session: variable_header.clean_session.unwrap(),
+            will_flag: variable_header.will_flag.unwrap(),
+            will_qos: variable_header.will_qos.unwrap(),
+            will_retain: variable_header.will_retain.unwrap(),
+            keep_alive: variable_header.keep_alive.unwrap(),
             payload: ConnectMessagePayload {
                 client_id,
                 will_topic,

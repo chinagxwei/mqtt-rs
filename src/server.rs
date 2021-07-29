@@ -133,7 +133,7 @@ impl Line {
             Some(msg) => {
                 match msg {
                     LineMessage::SocketMessage(msg) => {
-                        println!("socket msg");
+                        // println!("socket msg");
                         let base_msg = BaseMessage::from(msg);
                         if base_msg.get_message_type() == TypeKind::CONNECT {
                             let connect = BaseConnect::from(&base_msg);
@@ -152,14 +152,18 @@ impl Line {
                                     }
                                     None
                                 }
-                                MqttProtocolLevel::Level5 => { None }
+                                MqttProtocolLevel::Level5 => {
+                                    let msg = crate::packet::v5::Unpcak::connect(base_msg);
+                                    println!("{:?}", msg);
+                                    None
+                                }
                                 _ => { None }
                             };
                         }
                         None
                     }
                     LineMessage::SubscriptionMessage(msg) => {
-                        println!("subscription msg");
+                        // println!("subscription msg");
                         return match msg {
                             TopicMessage::Content(from_id, content) => {
                                 let to_client_id = self.client_id.as_ref().unwrap();

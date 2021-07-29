@@ -83,15 +83,15 @@ impl MqttMessage for BaseMessage {
 
 impl From<Vec<u8>> for BaseMessage {
     fn from(data: Vec<u8>) -> Self {
-        let (mut r#type2, retain, qos, dup, last_bytes) = get_type(data.as_slice());
-        BaseMessage { msg_type: r#type2.unwrap(), dup, qos, retain, bytes: last_bytes.to_vec() }
+        let (mut r#type2, retain, qos, dup, _last_bytes) = get_type(data.as_slice());
+        BaseMessage { msg_type: r#type2.unwrap(), dup, qos, retain, bytes: data }
     }
 }
 
 impl From<&[u8]> for BaseMessage {
     fn from(data: &[u8]) -> Self {
-        let (mut r#type2, retain, qos, dup, last_bytes) = get_type(data);
-        BaseMessage { msg_type: r#type2.unwrap(), dup, qos, retain, bytes: last_bytes.to_vec() }
+        let (mut r#type2, retain, qos, dup, _last_bytes) = get_type(data);
+        BaseMessage { msg_type: r#type2.unwrap(), dup, qos, retain, bytes: data.to_vec() }
     }
 }
 
@@ -118,10 +118,11 @@ impl BaseConnect {
 
 impl From<&BaseMessage> for BaseConnect {
     fn from(data: &BaseMessage) -> Self {
+        let message_bytes = data.bytes.get(2..).unwrap();
         let (
             mut protocol_name,
             mut protocol_level
-        ) = get_protocol_name_and_version(data.bytes.as_slice());
+        ) = get_protocol_name_and_version(message_bytes);
         BaseConnect {
             msg_type: data.msg_type,
             protocol_name: protocol_name.unwrap(),

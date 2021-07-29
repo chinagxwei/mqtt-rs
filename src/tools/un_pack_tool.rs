@@ -1,6 +1,7 @@
 use crate::types::TypeKind;
 use std::convert::{TryFrom, TryInto};
 use crate::protocol::{MqttProtocolLevel, MqttCleanSession, MqttWillFlag, MqttUsernameFlag, MqttPasswordFlag, MqttRetain, MqttQos, MqttDup};
+use crate::message::v3::VariableHeader;
 
 pub fn get_type(data: &[u8]) -> (Option<TypeKind>, Option<MqttRetain>, Option<MqttQos>, Option<MqttDup>, &[u8]) {
     let kind = TypeKind::try_from((data[0] >> 4)).ok();
@@ -56,15 +57,7 @@ pub fn get_connect_payload_data(data: &[u8], will_flag: MqttWillFlag, username_f
     (client_id, will_topic, will_message, Some(user_name), Some(password))
 }
 
-pub fn get_connect_variable_header(data: &[u8])
-                                   -> (
-                                       (
-                                           Option<String>, Option<u16>, Option<MqttProtocolLevel>,
-                                           Option<MqttCleanSession>, Option<MqttWillFlag>, Option<MqttQos>,
-                                           Option<MqttRetain>, Option<MqttPasswordFlag>, Option<MqttUsernameFlag>
-                                       ),
-                                       &[u8]
-                                   ) {
+pub fn get_connect_variable_header(data: &[u8]) -> (VariableHeader, &[u8]) {
     let slice = get_remaining_data(data);
     let protocol_name = Option::from(String::from_utf8_lossy(slice).into_owned());
     let clean_session = (data[7] >> 1) & 1;
@@ -74,18 +67,19 @@ pub fn get_connect_variable_header(data: &[u8])
     let password_flag = (data[7] >> 6) & 1;
     let username_flag = (data[7] >> 7) & 1;
     let (keep_alive, _) = parse_short_int(data.get(8..10).unwrap());
+
     (
-        (
+        VariableHeader {
             protocol_name,
-            Some(keep_alive),
-            MqttProtocolLevel::try_from(data[6]).ok(),
-            MqttCleanSession::try_from(clean_session).ok(),
-            MqttWillFlag::try_from(will_flag).ok(),
-            MqttQos::try_from(will_qos).ok(),
-            MqttRetain::try_from(will_retain).ok(),
-            MqttPasswordFlag::try_from(password_flag).ok(),
-            MqttUsernameFlag::try_from(username_flag).ok(),
-        ),
+            keep_alive: Some(keep_alive),
+            protocol_level: MqttProtocolLevel::try_from(data[6]).ok(),
+            clean_session: MqttCleanSession::try_from(clean_session).ok(),
+            will_flag: MqttWillFlag::try_from(will_flag).ok(),
+            will_qos: MqttQos::try_from(will_qos).ok(),
+            will_retain: MqttRetain::try_from(will_retain).ok(),
+            password_flag: MqttPasswordFlag::try_from(password_flag).ok(),
+            username_flag: MqttUsernameFlag::try_from(username_flag).ok(),
+        },
         data.get(10..).unwrap()
     )
 }
