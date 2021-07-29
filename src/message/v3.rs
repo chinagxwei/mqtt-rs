@@ -177,10 +177,10 @@ impl From<BaseMessage> for ConnectMessage {
 
 #[derive(Debug, Clone)]
 pub struct ConnackMessage {
-    msg_type: TypeKind,
-    session_present: MqttSessionPresent,
-    return_code: ReasonCodeV3,
-    bytes: Vec<u8>,
+    pub msg_type: TypeKind,
+    pub session_present: MqttSessionPresent,
+    pub return_code: ReasonCodeV3,
+    pub bytes: Vec<u8>,
 }
 
 impl MqttMessage for ConnackMessage {
@@ -207,14 +207,8 @@ impl Default for ConnackMessage {
 }
 
 impl From<BaseMessage> for ConnackMessage {
-    fn from(mut base: BaseMessage) -> Self {
-        let message_bytes = base.bytes.get(2..).unwrap();
-        ConnackMessage {
-            msg_type: base.msg_type,
-            session_present: MqttSessionPresent::try_from((message_bytes.get(2).unwrap() & 1)).unwrap(),
-            return_code: ReasonCodeV3::try_from(*message_bytes.get(3).unwrap()).unwrap(),
-            bytes: base.bytes,
-        }
+    fn from(base: BaseMessage) -> Self {
+        Unpcak::connack(base)
     }
 }
 
@@ -251,18 +245,8 @@ impl MqttBytesMessage for SubscribeMessage {
 }
 
 impl From<BaseMessage> for SubscribeMessage {
-    fn from(mut base: BaseMessage) -> Self {
-        let message_bytes = base.bytes.get(2..).unwrap();
-        let (message_id, last_data) = parse_short_int(message_bytes);
-        let (topic, last_data) = parse_string(last_data).unwrap();
-        let qos = if last_data.unwrap().len() == 1 { last_data.unwrap()[0] } else { 0 };
-        SubscribeMessage {
-            msg_type: base.msg_type,
-            message_id,
-            topic,
-            qos: MqttQos::try_from(qos).unwrap(),
-            bytes: Some(base.bytes),
-        }
+    fn from(base: BaseMessage) -> Self {
+        Unpcak::subscribe(base)
     }
 }
 
@@ -347,16 +331,8 @@ impl MqttBytesMessage for UnsubscribeMessage {
 }
 
 impl From<BaseMessage> for UnsubscribeMessage {
-    fn from(mut base: BaseMessage) -> Self {
-        let message_bytes = base.bytes.get(2..).unwrap();
-        let (message_id, last_data) = parse_short_int(message_bytes);
-        let (topic, _) = parse_string(last_data).unwrap();
-        UnsubscribeMessage {
-            msg_type: base.msg_type,
-            message_id,
-            topic,
-            bytes: Some(base.bytes),
-        }
+    fn from(base: BaseMessage) -> Self {
+        Unpcak::unsubscribe(base)
     }
 }
 
@@ -405,10 +381,8 @@ impl UnsubackMessage {
 }
 
 impl From<BaseMessage> for UnsubackMessage {
-    fn from(mut base: BaseMessage) -> Self {
-        let message_bytes = base.bytes.get(2..).unwrap();
-        let (message_id, _) = parse_short_int(message_bytes);
-        UnsubackMessage { msg_type: base.msg_type, message_id, bytes: Some(base.bytes) }
+    fn from(base: BaseMessage) -> Self {
+        Unpcak::unsuback(base)
     }
 }
 
@@ -437,34 +411,8 @@ impl MqttBytesMessage for PublishMessage {
 }
 
 impl From<BaseMessage> for PublishMessage {
-    fn from(mut base: BaseMessage) -> Self {
-        let message_bytes = base.bytes.get(2..).unwrap();
-        let (topic, last_data) = parse_string(message_bytes).unwrap();
-        let (message_id, msg_body) = if base.qos.is_some() {
-            let qos = base.qos.unwrap();
-            if qos > MqttQos::Qos0 {
-                let (message_id, last_data) = parse_short_int(last_data.unwrap());
-                let msg_body = String::from_utf8_lossy(last_data);
-                (message_id, msg_body)
-            } else {
-                let msg_body = String::from_utf8_lossy(last_data.unwrap());
-                (0, msg_body)
-            }
-        } else {
-            let msg_body = String::from_utf8_lossy(last_data.unwrap());
-            (0, msg_body)
-        };
-
-        PublishMessage {
-            msg_type: base.msg_type,
-            message_id,
-            topic,
-            dup: base.dup.unwrap_or(MqttDup::Disable),
-            qos: base.qos.unwrap_or(MqttQos::Qos0),
-            retain: base.retain.unwrap_or(MqttRetain::Disable),
-            msg_body: msg_body.into_owned(),
-            bytes: Some(base.bytes),
-        }
+    fn from(base: BaseMessage) -> Self {
+        Unpcak::publish(base)
     }
 }
 
@@ -504,7 +452,7 @@ impl PublishMessage {
 
 #[derive(Debug, Clone)]
 pub struct PubackMessage {
-    msg_type: TypeKind,
+    pub msg_type: TypeKind,
     pub message_id: u16,
     pub bytes: Option<Vec<u8>>,
 }
@@ -534,16 +482,14 @@ impl PubackMessage {
 }
 
 impl From<BaseMessage> for PubackMessage {
-    fn from(mut base: BaseMessage) -> Self {
-        let message_bytes = base.bytes.get(2..).unwrap();
-        let (message_id, _) = parse_short_int(message_bytes);
-        PubackMessage { msg_type: base.msg_type, message_id, bytes: Some(base.bytes) }
+    fn from(base: BaseMessage) -> Self {
+        Unpcak::puback(base)
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct PubrecMessage {
-    msg_type: TypeKind,
+    pub msg_type: TypeKind,
     pub message_id: u16,
     pub bytes: Option<Vec<u8>>,
 }
@@ -573,16 +519,14 @@ impl PubrecMessage {
 }
 
 impl From<BaseMessage> for PubrecMessage {
-    fn from(mut base: BaseMessage) -> Self {
-        let message_bytes = base.bytes.get(2..).unwrap();
-        let (message_id, _) = parse_short_int(message_bytes);
-        PubrecMessage { msg_type: base.msg_type, message_id, bytes: Some(base.bytes) }
+    fn from(base: BaseMessage) -> Self {
+        Unpcak::pubrec(base)
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct PubrelMessage {
-    msg_type: TypeKind,
+    pub msg_type: TypeKind,
     pub message_id: u16,
     pub bytes: Option<Vec<u8>>,
 }
@@ -612,16 +556,14 @@ impl PubrelMessage {
 }
 
 impl From<BaseMessage> for PubrelMessage {
-    fn from(mut base: BaseMessage) -> Self {
-        let message_bytes = base.bytes.get(2..).unwrap();
-        let (message_id, _) = parse_short_int(message_bytes);
-        PubrelMessage { msg_type: base.msg_type, message_id, bytes: Some(base.bytes) }
+    fn from(base: BaseMessage) -> Self {
+        Unpcak::pubrel(base)
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct PubcompMessage {
-    msg_type: TypeKind,
+    pub msg_type: TypeKind,
     pub message_id: u16,
     pub bytes: Option<Vec<u8>>,
 }
@@ -651,10 +593,8 @@ impl PubcompMessage {
 }
 
 impl From<BaseMessage> for PubcompMessage {
-    fn from(mut base: BaseMessage) -> Self {
-        let message_bytes = base.bytes.get(2..).unwrap();
-        let (message_id, _) = parse_short_int(message_bytes);
-        PubcompMessage { msg_type: base.msg_type, message_id, bytes: Some(base.bytes) }
+    fn from(base: BaseMessage) -> Self {
+        Unpcak::pubcomp(base)
     }
 }
 

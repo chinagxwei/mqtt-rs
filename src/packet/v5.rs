@@ -1,4 +1,4 @@
-`use crate::message::{BaseMessage, ConnectMessagePayload};
+use crate::message::{BaseMessage, ConnectMessagePayload};
 use crate::tools::un_pack_tool::{get_connect_variable_header, parse_byte, get_connect_payload_data};
 use crate::hex::UnPackProperty;
 use crate::message::v5::{ConnectMessage};
@@ -10,11 +10,11 @@ impl Unpcak {
         let message_bytes = base.bytes.get(2..).unwrap();
         let (mut variable_header, last_data) = get_connect_variable_header(message_bytes);
 
-        println!("v5 {:?}", last_data);
+        // println!("v5 {:?}", last_data);
 
         let (properties_total_length, last_data) = parse_byte(last_data);
 
-        println!("properties total length: {}", properties_total_length);
+        // println!("properties total length: {}", properties_total_length);
 
         let (properties, last_data) = if properties_total_length > 0 {
             (
@@ -25,7 +25,6 @@ impl Unpcak {
             (vec![], last_data)
         };
 
-        // println!("{:?}", last_data.get(properties_total_length as usize..).unwrap());
         let mut payload = get_connect_payload_data(
             last_data,
             variable_header.will_flag.unwrap(),

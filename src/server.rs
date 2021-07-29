@@ -219,7 +219,7 @@ async fn handle_v3(line: &mut Line, kind_opt: Option<&MqttMessageV3>) -> Option<
             }
             MqttMessageV3::Publish(msg) => {
                 // println!("{:?}", msg);
-                let topic_msg = TopicMessage::Content(line.client_id.as_ref().unwrap().to_owned(), msg.refresh());
+                let topic_msg = TopicMessage::Content(line.client_id.as_ref().unwrap().to_owned(), msg.clone());
                 println!("topic: {:?}", topic_msg);
                 SUBSCRIPT.broadcast(&msg.topic, &topic_msg).await;
                 if msg.qos == MqttQos::Qos1 {
