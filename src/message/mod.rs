@@ -17,6 +17,7 @@ pub enum MqttMessageKind {
     Response(Vec<u8>),
     RequestV3(MqttMessageV3),
     RequestV5,
+    Exit(Vec<u8>),
 }
 
 impl MqttMessageKind {

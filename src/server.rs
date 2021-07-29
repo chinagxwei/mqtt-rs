@@ -59,6 +59,12 @@ impl MqttServer {
                                         println!("failed to write to socket; err = {:?}", e);
                                     }
                                 }
+                                MqttMessageKind::Exit(data)=>{
+                                    if let Err(e) = socket.write_all(data.as_slice()).await {
+                                        println!("failed to write to socket; err = {:?}", e);
+                                    }
+                                    break 'end_loop;
+                                }
                                 _ => {}
                             }
                         }
@@ -146,7 +152,11 @@ impl Line {
                                     if let Some(v3) = MqttMessageKind::v3(base_msg) {
                                         if v3.is_v3() {
                                             if let Some(res_msg) = handle_v3(self, v3.get_v3()).await {
-                                                return Some(MqttMessageKind::Response(res_msg.as_bytes().to_vec()));
+                                                return if res_msg.is_disconnect() {
+                                                    Some(MqttMessageKind::Exit(res_msg.as_bytes().to_vec()))
+                                                } else {
+                                                    Some(MqttMessageKind::Response(res_msg.as_bytes().to_vec()))
+                                                }
                                             }
                                         }
                                     }
