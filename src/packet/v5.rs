@@ -2,6 +2,8 @@ use crate::message::{BaseMessage, ConnectMessagePayload};
 use crate::tools::un_pack_tool::{get_connect_variable_header, parse_byte, get_connect_payload_data};
 use crate::hex::UnPackProperty;
 use crate::message::v5::{ConnectMessage};
+use crate::protocol::MqttSessionPresent;
+use std::convert::TryFrom;
 
 pub struct Unpcak;
 
@@ -46,5 +48,17 @@ impl Unpcak {
             payload,
             bytes: Some(base.bytes),
         }
+    }
+
+    pub fn connack(mut base: BaseMessage) {
+        // let message_bytes = base.bytes.get(2..).unwrap();
+        // let session_present =  MqttSessionPresent::try_from((message_bytes.get(0).unwrap() & 1)).unwrap();
+        // let return_code =
+        // ConnackMessage {
+        //     msg_type: base.msg_type,
+        //     session_present: MqttSessionPresent::try_from((message_bytes.get(2).unwrap() & 1)).unwrap(),
+        //     return_code: ReasonCodeV3::try_from(*message_bytes.get(3).unwrap()).unwrap(),
+        //     bytes: base.bytes,
+        // }
     }
 }

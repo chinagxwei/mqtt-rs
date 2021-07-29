@@ -133,10 +133,12 @@ impl Unpcak {
 
     pub fn connack(mut base: BaseMessage) -> ConnackMessage {
         let message_bytes = base.bytes.get(2..).unwrap();
+        let session_present =  MqttSessionPresent::try_from((message_bytes.get(0).unwrap() & 1)).unwrap();
+        let return_code = ReasonCodeV3::try_from(*message_bytes.get(1).unwrap()).unwrap();
         ConnackMessage {
             msg_type: base.msg_type,
-            session_present: MqttSessionPresent::try_from((message_bytes.get(2).unwrap() & 1)).unwrap(),
-            return_code: ReasonCodeV3::try_from(*message_bytes.get(3).unwrap()).unwrap(),
+            session_present,
+            return_code,
             bytes: base.bytes,
         }
     }

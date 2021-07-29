@@ -49,7 +49,6 @@ impl MqttMessageKind {
             // TypeKind::SUBACK => { Some(Self::RequestV3(MqttMessageV3::Suback(SubackMessage::from(base_msg)))) }
             TypeKind::UNSUBSCRIBE => { Some(Self::RequestV3(MqttMessageV3::Unsubscribe(UnsubscribeMessage::from(base_msg)))) }
             TypeKind::UNSUBACK => { Some(Self::RequestV3(MqttMessageV3::Unsuback(UnsubackMessage::from(base_msg)))) }
-            // TypeKind::PINGREQ => { Some(Self::RequestV3(MqttMessageV3::Pingreq(PingreqMessage::from(base_msg)))) }
             TypeKind::PINGREQ => { Some(Self::RequestV3(MqttMessageV3::Pingresp(PingrespMessage::default()))) }
             TypeKind::DISCONNECT => { Some(Self::RequestV3(MqttMessageV3::Disconnect((DisconnectMessage::default())))) }
             TypeKind::AUTH => { None }
