@@ -6,8 +6,8 @@ use crate::message::v3::{
     SubackMessage, SubscribeMessage, UnsubackMessage, UnsubscribeMessage, PingreqMessage,
 };
 use crate::protocol::{MqttProtocolLevel, MqttDup, MqttQos, MqttRetain};
-use crate::message::v3::MqttMessageV3::Pubrec;
 use crate::TopicMessage;
+use crate::hex::PropertyItem;
 
 pub mod v3;
 pub mod v5;
@@ -129,4 +129,14 @@ impl From<&BaseMessage> for BaseConnect {
             protocol_level: protocol_level.unwrap(),
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct ConnectMessagePayload {
+    pub client_id: String,
+    pub will_topic: Option<String>,
+    pub will_message: Option<String>,
+    pub user_name: Option<String>,
+    pub password: Option<String>,
+    pub properties: Option<Vec<PropertyItem>>,
 }

@@ -1,19 +1,10 @@
 use crate::types::TypeKind;
 use crate::protocol::{MqttProtocolLevel, MqttCleanSession, MqttWillFlag, MqttQos, MqttRetain};
 use crate::hex::PropertyItem;
+use crate::message::ConnectMessagePayload;
 
 pub enum MqttMessageV5 {
     Connect(ConnectMessage),
-}
-
-#[derive(Debug, Clone)]
-pub struct ConnectMessagePayload {
-    pub client_id: String,
-    pub will_topic: Option<String>,
-    pub will_message: Option<String>,
-    pub user_name: Option<String>,
-    pub password: Option<String>,
-    pub properties: Option<Vec<PropertyItem>>,
 }
 
 #[derive(Debug, Clone)]

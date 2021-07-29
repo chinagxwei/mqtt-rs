@@ -7,7 +7,7 @@ use crate::tools::pack_tool::{pack_header};
 use crate::config::Config;
 use crate::hex::reason_code::ReasonCodes::V3;
 use crate::packet::v3::{Pack, Unpcak};
-use crate::message::{MqttBytesMessage, MqttMessage, BaseMessage};
+use crate::message::{MqttBytesMessage, MqttMessage, BaseMessage, ConnectMessagePayload};
 
 #[derive(Debug, Clone)]
 pub enum MqttMessageV3 {
@@ -130,15 +130,6 @@ pub struct ConnectMessage {
     pub bytes: Option<Vec<u8>>,
 }
 
-#[derive(Debug, Clone)]
-pub struct ConnectMessagePayload {
-    pub client_id: String,
-    pub will_topic: Option<String>,
-    pub will_message: Option<String>,
-    pub user_name: Option<String>,
-    pub password: Option<String>,
-}
-
 impl MqttMessage for ConnectMessage {
     fn get_message_type(&self) -> TypeKind {
         self.msg_type
@@ -162,6 +153,7 @@ impl ConnectMessage {
                 will_message: config.will().will_message(),
                 user_name: config.username(),
                 password: config.password(),
+                properties: None,
             },
             bytes: None,
         };

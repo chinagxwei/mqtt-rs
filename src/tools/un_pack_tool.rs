@@ -2,6 +2,7 @@ use crate::types::TypeKind;
 use std::convert::{TryFrom, TryInto};
 use crate::protocol::{MqttProtocolLevel, MqttCleanSession, MqttWillFlag, MqttUsernameFlag, MqttPasswordFlag, MqttRetain, MqttQos, MqttDup};
 use crate::message::v3::VariableHeader;
+use crate::message::ConnectMessagePayload;
 
 pub fn get_type(data: &[u8]) -> (Option<TypeKind>, Option<MqttRetain>, Option<MqttQos>, Option<MqttDup>, &[u8]) {
     let kind = TypeKind::try_from((data[0] >> 4)).ok();
@@ -30,9 +31,7 @@ pub fn get_publish_header(data: u8) -> (Option<MqttRetain>, Option<MqttQos>, Opt
     )
 }
 
-pub fn get_connect_payload_data(data: &[u8], will_flag: MqttWillFlag, username_flag: MqttUsernameFlag, password_flag: MqttPasswordFlag)
-                                -> (String, Option<String>, Option<String>, Option<String>, Option<String>)
-{
+pub fn get_connect_payload_data(data: &[u8], will_flag: MqttWillFlag, username_flag: MqttUsernameFlag, password_flag: MqttPasswordFlag) -> ConnectMessagePayload {
     let (client_id, last_data) = parse_string(data).unwrap();
     let (will_topic, will_message, last_data) = if MqttWillFlag::Enable == will_flag {
         let (will_topic, will_last_data) = parse_string(last_data.unwrap()).unwrap();
@@ -53,8 +52,15 @@ pub fn get_connect_payload_data(data: &[u8], will_flag: MqttWillFlag, username_f
     } else {
         ("".to_string(), last_data)
     };
-
-    (client_id, will_topic, will_message, Some(user_name), Some(password))
+    println!("client ID: {}", client_id);
+    ConnectMessagePayload{
+        client_id,
+        will_topic,
+        will_message,
+        user_name: Some(user_name),
+        password: Some(password),
+        properties: None
+    }
 }
 
 pub fn get_connect_variable_header(data: &[u8]) -> (VariableHeader, &[u8]) {
