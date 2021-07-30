@@ -4,6 +4,8 @@ use std::convert::{TryFrom, Infallible};
 use crate::tools::un_pack_tool::{parse_long_int, parse_string, parse_byte, parse_short_int, get_remaining_data, get_remaining_length, var_int};
 
 pub mod reason_code;
+pub mod un_pack_property;
+pub mod pack_property;
 
 #[derive(Debug, Clone)]
 pub enum PropertyValue {
@@ -247,69 +249,5 @@ impl Property {
                 Some((PropertyItem(Property::SubscriptionIdentifier, PropertyValue::String(val)), last_data))
             }
         }
-    }
-}
-
-pub struct UnPackProperty;
-
-impl UnPackProperty {
-    pub fn connect(mut length: u32, mut data: &[u8]) -> Vec<PropertyItem> {
-        let mut properties = vec![];
-        loop {
-            let property = data[0];
-            match Property::try_from(property) {
-                Ok(p) => {
-                    if p.is_connect_property() {
-                        if let Some((item, last_data)) = p.property_handle(&mut length, data.get(1..).unwrap()) {
-                            data = last_data;
-                            properties.push(item);
-                        }
-                    } else {
-                        // return Err(format!("Property 0x{:X} not exist",property));
-                    }
-                }
-                Err(e) => {
-                    println!("Property {:?} not exist", e)
-                }
-            }
-
-            println!("{}", property);
-
-            if length <= 0 {
-                break;
-            }
-        }
-        println!("{:?}", properties);
-        properties
-    }
-
-    pub fn connack(mut length: u32, mut data: &[u8])-> Vec<PropertyItem>{
-        let mut properties = vec![];
-        loop {
-            let property = data[0];
-            match Property::try_from(property) {
-                Ok(p) => {
-                    if p.is_connack_property() {
-                        if let Some((item, last_data)) = p.property_handle(&mut length, data.get(1..).unwrap()) {
-                            data = last_data;
-                            properties.push(item);
-                        }
-                    } else {
-                        // return Err(format!("Property 0x{:X} not exist",property));
-                    }
-                }
-                Err(e) => {
-                    println!("Property {:?} not exist", e)
-                }
-            }
-
-            println!("{}", property);
-
-            if length <= 0 {
-                break;
-            }
-        }
-        println!("{:?}", properties);
-        properties
     }
 }

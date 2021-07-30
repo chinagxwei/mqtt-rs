@@ -1,23 +1,6 @@
 use num_enum::TryFromPrimitive;
 use std::convert::TryFrom;
-
-#[derive(Debug, Copy, Clone, TryFromPrimitive)]
-#[repr(u32)]
-pub enum QosReasonPhrases {
-    GrantedQos0 = 0x00,
-    GrantedQos1 = 0x01,
-    GrantedQos2 = 0x02,
-}
-
-impl QosReasonPhrases {
-    pub fn as_str(&self) -> &'static str {
-        match *self {
-            QosReasonPhrases::GrantedQos0 => { "Granted QoS 0" }
-            QosReasonPhrases::GrantedQos1 => { "Granted QoS 1" }
-            QosReasonPhrases::GrantedQos2 => { "Granted QoS 2" }
-        }
-    }
-}
+use crate::protocol::MqttQos;
 
 #[derive(Debug, Copy, Clone, TryFromPrimitive)]
 #[repr(u8)]
@@ -41,6 +24,10 @@ impl ReasonCodeV3 {
             ReasonCodeV3::NotAuthorized => { "The Client is not authorized to connect" }
         }
     }
+
+    pub fn as_byte(&self) -> u8 {
+        *self as u8
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -60,26 +47,43 @@ impl ReasonCodes {
 
     pub fn as_str(&self) -> &'static str {
         match self {
-            ReasonCodes::V3(code) => { code.as_str() }
-            ReasonCodes::V5(code) => { "not found" }
+            ReasonCodes::V3(code) => code.as_str(),
+            ReasonCodes::V5(code) => code.as_str()
         }
     }
 
     pub fn as_byte(&self) -> u8 {
         match self {
-            ReasonCodes::V3(code) => { *code as u8 }
-            ReasonCodes::V5(code) => { b'n' }
+            ReasonCodes::V3(code) => code.as_byte(),
+            ReasonCodes::V5(code) => code.as_byte()
         }
     }
 }
 
 #[derive(Debug, Copy, Clone)]
 pub enum ReasonCodeV5 {
-    General
+    Qos(MqttQos),
+    ReasonPhrases(ReasonPhrases),
+}
+
+impl ReasonCodeV5 {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ReasonCodeV5::Qos(mq) => mq.as_str(),
+            ReasonCodeV5::ReasonPhrases(rp) => rp.as_str()
+        }
+    }
+
+    pub fn as_byte(&self) -> u8 {
+        match self {
+            ReasonCodeV5::Qos(mq) => mq.as_byte(),
+            ReasonCodeV5::ReasonPhrases(rp) => rp.as_byte()
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, TryFromPrimitive)]
-#[repr(u32)]
+#[repr(u8)]
 pub enum ReasonPhrases {
     Success = 0x00,
     DisconnectWithWillMessage = 0x04,
@@ -169,6 +173,10 @@ impl ReasonPhrases {
             ReasonPhrases::SubscriptionIdentifiersNotSupported => { "Subscription identifiers not supported" }
             ReasonPhrases::WildcardSubscriptionsNotSupported => { "Wildcard subscriptions not supported" }
         }
+    }
+
+    pub fn as_byte(&self) -> u8 {
+        *self as u8
     }
 }
 
