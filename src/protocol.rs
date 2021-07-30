@@ -32,6 +32,22 @@ pub enum MqttQos {
     Qos0 = 0,
     Qos1 = 1,
     Qos2 = 2,
+    Failure = 128
+}
+
+impl MqttQos {
+    pub fn as_str(&self) -> &'static str {
+        match *self {
+            MqttQos::Qos0 => { "Granted QoS 0" }
+            MqttQos::Qos1 => { "Granted QoS 1" }
+            MqttQos::Qos2 => { "Granted QoS 2" }
+            MqttQos::Failure => {"Granted Fail"}
+        }
+    }
+
+    pub fn as_byte(&self) -> u8 {
+        *self as u8
+    }
 }
 
 #[derive(Debug, Copy, Clone, TryFromPrimitive, Ord, PartialOrd, Eq, PartialEq)]
@@ -93,6 +109,20 @@ pub enum MqttPasswordFlag {
 #[derive(Debug, Copy, Clone, TryFromPrimitive, Ord, PartialOrd, Eq, PartialEq)]
 #[repr(u8)]
 pub enum MqttSessionPresent {
+    Disable = 0,
+    Enable = 1,
+}
+
+#[derive(Debug, Copy, Clone, TryFromPrimitive, Ord, PartialOrd, Eq, PartialEq)]
+#[repr(u8)]
+pub enum MqttNoLocal {
+    Disable = 0,
+    Enable = 1,
+}
+
+#[derive(Debug, Copy, Clone, TryFromPrimitive, Ord, PartialOrd, Eq, PartialEq)]
+#[repr(u8)]
+pub enum MqttRetainAsPublished {
     Disable = 0,
     Enable = 1,
 }
