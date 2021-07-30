@@ -101,10 +101,10 @@ impl From<BaseMessage> for PublishMessage {
 #[derive(Debug, Clone)]
 pub struct SubscribeTopic {
     pub topic: String,
-    pub qos: MqttQos,
-    pub no_local: MqttNoLocal,
-    pub retain_as_published: MqttRetainAsPublished,
-    pub retain_handling: u32,
+    pub qos: Option<MqttQos>,
+    pub no_local: Option<MqttNoLocal>,
+    pub retain_as_published: Option<MqttRetainAsPublished>,
+    pub retain_handling: Option<u32>,
 }
 
 #[derive(Debug, Clone)]
@@ -131,6 +131,33 @@ impl MqttBytesMessage for SubscribeMessage {
 impl From<BaseMessage> for SubscribeMessage {
     fn from(base: BaseMessage) -> Self {
         v5_unpacket::subscribe(base)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct UnsubscribeMessage {
+    pub msg_type: TypeKind,
+    pub message_id: u16,
+    pub topics: Vec<SubscribeTopic>,
+    pub properties: Option<Vec<PropertyItem>>,
+    pub bytes: Option<Vec<u8>>,
+}
+
+impl MqttMessage for UnsubscribeMessage {
+    fn get_message_type(&self) -> TypeKind {
+        self.msg_type
+    }
+}
+
+impl MqttBytesMessage for UnsubscribeMessage {
+    fn as_bytes(&self) -> &[u8] {
+        &self.bytes.as_ref().unwrap()
+    }
+}
+
+impl From<BaseMessage> for UnsubscribeMessage {
+    fn from(base: BaseMessage) -> Self {
+        v5_unpacket::unsubscribe(base)
     }
 }
 
@@ -185,5 +212,64 @@ impl MqttBytesMessage for UnsubackMessage {
 impl From<BaseMessage> for UnsubackMessage {
     fn from(base: BaseMessage) -> Self {
         v5_unpacket::unsuback(base)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DisconnectMessage {
+    pub msg_type: TypeKind,
+    pub code: u8,
+    pub properties: Option<Vec<PropertyItem>>,
+    pub bytes: Vec<u8>,
+}
+
+impl MqttMessage for DisconnectMessage {
+    fn get_message_type(&self) -> TypeKind {
+        self.msg_type
+    }
+}
+
+impl MqttBytesMessage for DisconnectMessage {
+    fn as_bytes(&self) -> &[u8] {
+        &self.bytes.as_slice()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct AuthMessage {
+    pub msg_type: TypeKind,
+    pub code: u8,
+    pub properties: Option<Vec<PropertyItem>>,
+    pub bytes: Vec<u8>,
+}
+
+impl MqttMessage for AuthMessage {
+    fn get_message_type(&self) -> TypeKind {
+        self.msg_type
+    }
+}
+
+impl MqttBytesMessage for AuthMessage {
+    fn as_bytes(&self) -> &[u8] {
+        &self.bytes.as_slice()
+    }
+}
+
+pub struct CommonPayload{
+    pub msg_type: TypeKind,
+    pub code: u8,
+    pub properties: Option<Vec<PropertyItem>>,
+    pub bytes: Vec<u8>,
+}
+
+impl MqttMessage for CommonPayload {
+    fn get_message_type(&self) -> TypeKind {
+        self.msg_type
+    }
+}
+
+impl MqttBytesMessage for CommonPayload {
+    fn as_bytes(&self) -> &[u8] {
+        &self.bytes.as_slice()
     }
 }

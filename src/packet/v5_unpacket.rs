@@ -1,9 +1,10 @@
 use crate::message::BaseMessage;
-use crate::message::v5::{ConnectMessage, ConnackMessage, PublishMessage, SubscribeMessage, SubackMessage, UnsubackMessage, SubscribeTopic};
+use crate::message::v5::{ConnectMessage, ConnackMessage, PublishMessage, SubscribeMessage, SubackMessage, UnsubackMessage, SubscribeTopic, UnsubscribeMessage, DisconnectMessage, AuthMessage, CommonPayload};
 use crate::tools::un_pack_tool::{parse_short_int, parse_byte, parse_string, get_connect_variable_header, get_connect_payload_data};
 use crate::hex::un_pack_property;
 use crate::protocol::{MqttQos, MqttNoLocal, MqttRetainAsPublished, MqttSessionPresent, MqttDup, MqttRetain};
 use std::convert::TryFrom;
+use crate::hex::reason_code::ReasonPhrases;
 
 pub fn connect(mut base: BaseMessage) -> ConnectMessage {
     let message_bytes = base.bytes.get(2..).unwrap();
@@ -132,10 +133,10 @@ pub fn subscribe(mut base: BaseMessage) -> SubscribeMessage {
         let byte = *last.unwrap().get(0).unwrap();
         topics.push(SubscribeTopic {
             topic,
-            qos: MqttQos::try_from((byte & 3)).unwrap(),
-            no_local: MqttNoLocal::try_from((byte >> 2 & 1)).unwrap(),
-            retain_as_published: MqttRetainAsPublished::try_from((byte >> 3 & 3)).unwrap(),
-            retain_handling: (byte >> 4) as u32,
+            qos: Some(MqttQos::try_from((byte & 3)).unwrap()),
+            no_local: Some(MqttNoLocal::try_from((byte >> 2 & 1)).unwrap()),
+            retain_as_published: Some(MqttRetainAsPublished::try_from((byte >> 3 & 3)).unwrap()),
+            retain_handling: Some((byte >> 4) as u32),
         });
         if last.unwrap().len() > 1 {
             last_data = last.unwrap().get(1..).unwrap();
@@ -145,6 +146,46 @@ pub fn subscribe(mut base: BaseMessage) -> SubscribeMessage {
     }
 
     SubscribeMessage {
+        msg_type: base.msg_type,
+        message_id,
+        topics,
+        properties,
+        bytes: Some(base.bytes),
+    }
+}
+
+pub fn unsubscribe(mut base: BaseMessage) -> UnsubscribeMessage {
+    let message_bytes = base.bytes.get(2..).unwrap();
+
+    let (message_id, last_data) = parse_short_int(message_bytes);
+
+    let (properties_total_length, last_data) = parse_byte(last_data);
+
+    let properties = if properties_total_length > 0 {
+        Some(un_pack_property::unsubscribe(properties_total_length as u32, last_data))
+    } else {
+        None
+    };
+
+    let mut last_data = last_data.get(properties_total_length as usize..).unwrap();
+
+    let mut topics = vec![];
+
+    loop {
+        let (topic, last) = parse_string(last_data).unwrap();
+        topics.push(SubscribeTopic {
+            topic,
+            qos: None,
+            no_local: None,
+            retain_as_published: None,
+            retain_handling: None,
+        });
+        if last.unwrap().len() <= 1 {
+            break;
+        }
+    }
+
+    UnsubscribeMessage {
         msg_type: base.msg_type,
         message_id,
         topics,
@@ -198,5 +239,98 @@ pub fn unsuback(mut base: BaseMessage) -> UnsubackMessage {
         codes,
         properties,
         bytes: Some(base.bytes),
+    }
+}
+
+pub fn disconnect(mut base: BaseMessage) -> DisconnectMessage {
+    let message_bytes = base.bytes.get(2..).unwrap();
+
+    let (code, mut last_data) = if message_bytes.len() > 0 {
+        parse_byte(message_bytes)
+    } else {
+        (ReasonPhrases::Success as u8, message_bytes)
+    };
+
+    let mut properties_total_length = 0;
+
+    if last_data.len() > 0 {
+        let (length, last) = parse_byte(last_data);
+        properties_total_length = length;
+        last_data = last
+    }
+
+    let properties = if properties_total_length > 0 {
+        Some(un_pack_property::suback(properties_total_length as u32, last_data))
+    } else {
+        None
+    };
+
+    DisconnectMessage {
+        msg_type: base.msg_type,
+        code,
+        properties,
+        bytes: base.bytes,
+    }
+}
+
+pub fn auth(mut base: BaseMessage) -> AuthMessage {
+    let message_bytes = base.bytes.get(2..).unwrap();
+
+    let (code, mut last_data) = if message_bytes.len() > 0 {
+        parse_byte(message_bytes)
+    } else {
+        (ReasonPhrases::Success as u8, message_bytes)
+    };
+
+    let mut properties_total_length = 0;
+
+    if last_data.len() > 0 {
+        let (length, last) = parse_byte(last_data);
+        properties_total_length = length;
+        last_data = last
+    }
+
+    let properties = if properties_total_length > 0 {
+        Some(un_pack_property::auth(properties_total_length as u32, last_data))
+    } else {
+        None
+    };
+
+    AuthMessage {
+        msg_type: base.msg_type,
+        code,
+        properties,
+        bytes: base.bytes,
+    }
+}
+
+pub fn get_reason_code(mut base: BaseMessage) -> CommonPayload {
+    let message_bytes = base.bytes.get(2..).unwrap();
+
+    let (code, mut last_data) = if message_bytes.len() > 0 {
+        parse_byte(message_bytes)
+    } else {
+        (ReasonPhrases::Success as u8, message_bytes)
+    };
+
+    let mut properties_total_length = 0;
+
+    if last_data.len() > 0 {
+        let (length, last) = parse_byte(last_data);
+        properties_total_length = length;
+        last_data = last
+    }
+
+    let properties = if properties_total_length > 0 {
+        Some(un_pack_property::pub_and_sub(properties_total_length as u32, last_data))
+    } else {
+        None
+    };
+
+    CommonPayload {
+        msg_type: base.msg_type,
+        code,
+        properties,
+        bytes: base.bytes,
     }
 }
