@@ -6,7 +6,7 @@ use crate::hex::reason_code::{ReasonCodeV3, ReasonCodes};
 use crate::tools::pack_tool::{pack_header};
 use crate::config::Config;
 use crate::hex::reason_code::ReasonCodes::V3;
-use crate::packet::v3::{Pack, Unpcak};
+use crate::packet::{v3_packet, v3_unpacket};
 use crate::message::{MqttBytesMessage, MqttMessage, BaseMessage, ConnectMessagePayload};
 
 #[derive(Debug, Clone)]
@@ -158,20 +158,20 @@ impl ConnectMessage {
             bytes: None,
         };
 
-        msg.bytes = Some(Pack::connect(&msg));
+        msg.bytes = Some(v3_packet::connect(&msg));
         msg
     }
 }
 
 impl MqttBytesMessage for ConnectMessage {
     fn as_bytes(&self) -> &[u8] {
-        self.bytes.as_ref().unwrap().as_slice()
+        self.bytes.as_ref().unwrap()
     }
 }
 
 impl From<BaseMessage> for ConnectMessage {
     fn from(data: BaseMessage) -> Self {
-        Unpcak::connect(data)
+        v3_unpacket::connect(data)
     }
 }
 
@@ -179,7 +179,7 @@ impl From<BaseMessage> for ConnectMessage {
 pub struct ConnackMessage {
     pub msg_type: TypeKind,
     pub session_present: MqttSessionPresent,
-    pub return_code: ReasonCodeV3,
+    pub return_code: u8,
     pub bytes: Vec<u8>,
 }
 
@@ -200,15 +200,15 @@ impl Default for ConnackMessage {
         ConnackMessage {
             msg_type: TypeKind::CONNACK,
             session_present: MqttSessionPresent::Disable,
-            return_code: ReasonCodeV3::ConnectionAccepted,
-            bytes: Pack::connack(MqttSessionPresent::Disable, ReasonCodeV3::ConnectionAccepted),
+            return_code: ReasonCodeV3::ConnectionAccepted as u8,
+            bytes: v3_packet::connack(MqttSessionPresent::Disable, ReasonCodeV3::ConnectionAccepted),
         }
     }
 }
 
 impl From<BaseMessage> for ConnackMessage {
     fn from(base: BaseMessage) -> Self {
-        Unpcak::connack(base)
+        v3_unpacket::connack(base)
     }
 }
 
@@ -217,8 +217,8 @@ impl ConnackMessage {
         ConnackMessage {
             msg_type: TypeKind::CONNACK,
             session_present,
-            return_code,
-            bytes: Pack::connack(session_present, return_code),
+            return_code: return_code as u8,
+            bytes: v3_packet::connack(session_present, return_code),
         }
     }
 }
@@ -240,13 +240,13 @@ impl MqttMessage for SubscribeMessage {
 
 impl MqttBytesMessage for SubscribeMessage {
     fn as_bytes(&self) -> &[u8] {
-        &self.bytes.as_ref().unwrap().as_slice()
+        &self.bytes.as_ref().unwrap()
     }
 }
 
 impl From<BaseMessage> for SubscribeMessage {
     fn from(base: BaseMessage) -> Self {
-        Unpcak::subscribe(base)
+        v3_unpacket::subscribe(base)
     }
 }
 
@@ -259,7 +259,7 @@ impl SubscribeMessage {
             qos,
             bytes: None,
         };
-        msg.bytes = Some(Pack::subscribe(&msg));
+        msg.bytes = Some(v3_packet::subscribe(&msg));
         msg
     }
 }
@@ -268,7 +268,7 @@ impl SubscribeMessage {
 pub struct SubackMessage {
     pub msg_type: TypeKind,
     pub message_id: u16,
-    pub qos: MqttQos,
+    pub codes: Vec<u8>,
     pub bytes: Option<Vec<u8>>,
 }
 
@@ -280,32 +280,42 @@ impl MqttMessage for SubackMessage {
 
 impl MqttBytesMessage for SubackMessage {
     fn as_bytes(&self) -> &[u8] {
-        &self.bytes.as_ref().unwrap().as_slice()
+        &self.bytes.as_ref().unwrap()
     }
 }
 
 impl SubackMessage {
     pub fn new(message_id: u16, qos: MqttQos) -> Self {
+        let codes = if (qos as u32) < 3 {
+            qos.as_byte().to_ne_bytes().to_vec()
+        } else {
+            MqttQos::Failure.as_byte().to_ne_bytes().to_vec()
+        };
         let mut msg = SubackMessage {
             msg_type: TypeKind::SUBACK,
             message_id,
-            qos,
+            codes,
             bytes: None,
         };
-        msg.bytes = Some(Pack::suback(&msg));
+        msg.bytes = Some(v3_packet::suback(&msg));
         msg
     }
 }
 
 impl From<SubscribeMessage> for SubackMessage {
     fn from(mut smsg: SubscribeMessage) -> Self {
+        let codes = if (smsg.qos as u32) < 3 {
+            smsg.qos.as_byte().to_ne_bytes().to_vec()
+        } else {
+            MqttQos::Failure.as_byte().to_ne_bytes().to_vec()
+        };
         let mut msg = SubackMessage {
             msg_type: TypeKind::SUBACK,
             message_id: smsg.message_id,
-            qos: smsg.qos,
+            codes,
             bytes: None,
         };
-        msg.bytes = Some(Pack::suback(&msg));
+        msg.bytes = Some(v3_packet::suback(&msg));
         msg
     }
 }
@@ -326,13 +336,13 @@ impl MqttMessage for UnsubscribeMessage {
 
 impl MqttBytesMessage for UnsubscribeMessage {
     fn as_bytes(&self) -> &[u8] {
-        &self.bytes.as_ref().unwrap().as_slice()
+        &self.bytes.as_ref().unwrap()
     }
 }
 
 impl From<BaseMessage> for UnsubscribeMessage {
     fn from(base: BaseMessage) -> Self {
-        Unpcak::unsubscribe(base)
+        v3_unpacket::unsubscribe(base)
     }
 }
 
@@ -344,7 +354,7 @@ impl UnsubscribeMessage {
             topic,
             bytes: None,
         };
-        msg.bytes = Some(Pack::unsubscribe(&msg));
+        msg.bytes = Some(v3_packet::unsubscribe(&msg));
         msg
     }
 }
@@ -364,7 +374,7 @@ impl MqttMessage for UnsubackMessage {
 
 impl MqttBytesMessage for UnsubackMessage {
     fn as_bytes(&self) -> &[u8] {
-        &self.bytes.as_ref().unwrap().as_slice()
+        &self.bytes.as_ref().unwrap()
     }
 }
 
@@ -375,14 +385,14 @@ impl UnsubackMessage {
             message_id,
             bytes: None,
         };
-        msg.bytes = Some(Pack::not_payload(msg.message_id, TypeKind::UNSUBACK));
+        msg.bytes = Some(v3_packet::not_payload(msg.message_id, TypeKind::UNSUBACK));
         msg
     }
 }
 
 impl From<BaseMessage> for UnsubackMessage {
     fn from(base: BaseMessage) -> Self {
-        Unpcak::unsuback(base)
+        v3_unpacket::unsuback(base)
     }
 }
 
@@ -406,13 +416,13 @@ impl MqttMessage for PublishMessage {
 
 impl MqttBytesMessage for PublishMessage {
     fn as_bytes(&self) -> &[u8] {
-        &self.bytes.as_ref().unwrap().as_slice()
+        &self.bytes.as_ref().unwrap()
     }
 }
 
 impl From<BaseMessage> for PublishMessage {
     fn from(base: BaseMessage) -> Self {
-        Unpcak::publish(base)
+        v3_unpacket::publish(base)
     }
 }
 
@@ -428,7 +438,7 @@ impl PublishMessage {
             msg_body: message_body,
             bytes: None,
         };
-        msg.bytes = Some(Pack::publish(&msg));
+        msg.bytes = Some(v3_packet::publish(&msg));
         msg
     }
 }
@@ -445,7 +455,7 @@ impl PublishMessage {
             msg_body: self.msg_body.clone(),
             bytes: None,
         };
-        msg.bytes = Some(Pack::publish(&msg));
+        msg.bytes = Some(v3_packet::publish(&msg));
         msg
     }
 }
@@ -465,7 +475,7 @@ impl MqttMessage for PubackMessage {
 
 impl MqttBytesMessage for PubackMessage {
     fn as_bytes(&self) -> &[u8] {
-        &self.bytes.as_ref().unwrap().as_slice()
+        &self.bytes.as_ref().unwrap()
     }
 }
 
@@ -476,14 +486,14 @@ impl PubackMessage {
             message_id,
             bytes: None,
         };
-        msg.bytes = Some(Pack::not_payload(msg.message_id, TypeKind::PUBACK));
+        msg.bytes = Some(v3_packet::not_payload(msg.message_id, TypeKind::PUBACK));
         msg
     }
 }
 
 impl From<BaseMessage> for PubackMessage {
     fn from(base: BaseMessage) -> Self {
-        Unpcak::puback(base)
+        v3_unpacket::puback(base)
     }
 }
 
@@ -502,7 +512,7 @@ impl MqttMessage for PubrecMessage {
 
 impl MqttBytesMessage for PubrecMessage {
     fn as_bytes(&self) -> &[u8] {
-        &self.bytes.as_ref().unwrap().as_slice()
+        &self.bytes.as_ref().unwrap()
     }
 }
 
@@ -513,14 +523,14 @@ impl PubrecMessage {
             message_id,
             bytes: None,
         };
-        msg.bytes = Some(Pack::not_payload(msg.message_id, TypeKind::PUBREC));
+        msg.bytes = Some(v3_packet::not_payload(msg.message_id, TypeKind::PUBREC));
         msg
     }
 }
 
 impl From<BaseMessage> for PubrecMessage {
     fn from(base: BaseMessage) -> Self {
-        Unpcak::pubrec(base)
+        v3_unpacket::pubrec(base)
     }
 }
 
@@ -539,7 +549,7 @@ impl MqttMessage for PubrelMessage {
 
 impl MqttBytesMessage for PubrelMessage {
     fn as_bytes(&self) -> &[u8] {
-        &self.bytes.as_ref().unwrap().as_slice()
+        &self.bytes.as_ref().unwrap()
     }
 }
 
@@ -550,14 +560,14 @@ impl PubrelMessage {
             message_id,
             bytes: None,
         };
-        msg.bytes = Some(Pack::not_payload(msg.message_id, TypeKind::PUBREL));
+        msg.bytes = Some(v3_packet::not_payload(msg.message_id, TypeKind::PUBREL));
         msg
     }
 }
 
 impl From<BaseMessage> for PubrelMessage {
     fn from(base: BaseMessage) -> Self {
-        Unpcak::pubrel(base)
+        v3_unpacket::pubrel(base)
     }
 }
 
@@ -576,7 +586,7 @@ impl MqttMessage for PubcompMessage {
 
 impl MqttBytesMessage for PubcompMessage {
     fn as_bytes(&self) -> &[u8] {
-        &self.bytes.as_ref().unwrap().as_slice()
+        &self.bytes.as_ref().unwrap()
     }
 }
 
@@ -587,14 +597,14 @@ impl PubcompMessage {
             message_id,
             bytes: None,
         };
-        msg.bytes = Some(Pack::not_payload(msg.message_id, TypeKind::PUBCOMP));
+        msg.bytes = Some(v3_packet::not_payload(msg.message_id, TypeKind::PUBCOMP));
         msg
     }
 }
 
 impl From<BaseMessage> for PubcompMessage {
     fn from(base: BaseMessage) -> Self {
-        Unpcak::pubcomp(base)
+        v3_unpacket::pubcomp(base)
     }
 }
 

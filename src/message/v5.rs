@@ -1,8 +1,8 @@
 use crate::types::TypeKind;
-use crate::protocol::{MqttProtocolLevel, MqttCleanSession, MqttWillFlag, MqttQos, MqttRetain};
+use crate::protocol::{MqttProtocolLevel, MqttCleanSession, MqttWillFlag, MqttQos, MqttRetain, MqttSessionPresent, MqttDup, MqttRetainAsPublished, MqttNoLocal};
 use crate::hex::PropertyItem;
-use crate::message::{ConnectMessagePayload, BaseMessage};
-use crate::packet::v5;
+use crate::message::{ConnectMessagePayload, BaseMessage, MqttMessage, MqttBytesMessage};
+use crate::packet::{v5_packet, v5_unpacket};
 
 pub enum MqttMessageV5 {
     Connect(ConnectMessage),
@@ -24,6 +24,166 @@ pub struct ConnectMessage {
 
 impl From<BaseMessage> for ConnectMessage {
     fn from(base: BaseMessage) -> Self {
-        v5::Unpcak::connect(base)
+        v5_unpacket::connect(base)
+    }
+}
+
+impl MqttMessage for ConnectMessage {
+    fn get_message_type(&self) -> TypeKind {
+        self.msg_type
+    }
+}
+
+impl MqttBytesMessage for ConnectMessage {
+    fn as_bytes(&self) -> &[u8] {
+        self.bytes.as_ref().unwrap()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ConnackMessage {
+    pub msg_type: TypeKind,
+    pub session_present: MqttSessionPresent,
+    pub return_code: u8,
+    pub properties: Option<Vec<PropertyItem>>,
+    pub bytes: Vec<u8>,
+}
+
+impl MqttMessage for ConnackMessage {
+    fn get_message_type(&self) -> TypeKind {
+        self.msg_type
+    }
+}
+
+impl MqttBytesMessage for ConnackMessage {
+    fn as_bytes(&self) -> &[u8] {
+        self.bytes.as_slice()
+    }
+}
+
+impl From<BaseMessage> for ConnackMessage {
+    fn from(base: BaseMessage) -> Self {
+        v5_unpacket::connack(base)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct PublishMessage {
+    pub msg_type: TypeKind,
+    pub message_id: u16,
+    pub topic: String,
+    pub dup: MqttDup,
+    pub qos: MqttQos,
+    pub retain: MqttRetain,
+    pub msg_body: String,
+    pub properties: Option<Vec<PropertyItem>>,
+    pub bytes: Option<Vec<u8>>,
+}
+
+impl MqttMessage for PublishMessage {
+    fn get_message_type(&self) -> TypeKind {
+        self.msg_type
+    }
+}
+
+impl MqttBytesMessage for PublishMessage {
+    fn as_bytes(&self) -> &[u8] {
+        self.bytes.as_ref().unwrap()
+    }
+}
+
+impl From<BaseMessage> for PublishMessage {
+    fn from(base: BaseMessage) -> Self {
+        v5_unpacket::publish(base)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SubscribeTopic {
+    pub topic: String,
+    pub qos: MqttQos,
+    pub no_local: MqttNoLocal,
+    pub retain_as_published: MqttRetainAsPublished,
+    pub retain_handling: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct SubscribeMessage {
+    pub msg_type: TypeKind,
+    pub message_id: u16,
+    pub topics: Vec<SubscribeTopic>,
+    pub properties: Option<Vec<PropertyItem>>,
+    pub bytes: Option<Vec<u8>>,
+}
+
+impl MqttMessage for SubscribeMessage {
+    fn get_message_type(&self) -> TypeKind {
+        self.msg_type
+    }
+}
+
+impl MqttBytesMessage for SubscribeMessage {
+    fn as_bytes(&self) -> &[u8] {
+        &self.bytes.as_ref().unwrap()
+    }
+}
+
+impl From<BaseMessage> for SubscribeMessage {
+    fn from(base: BaseMessage) -> Self {
+        v5_unpacket::subscribe(base)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SubackMessage {
+    pub msg_type: TypeKind,
+    pub message_id: u16,
+    pub codes: Vec<u8>,
+    pub properties: Option<Vec<PropertyItem>>,
+    pub bytes: Option<Vec<u8>>,
+}
+
+impl MqttMessage for SubackMessage {
+    fn get_message_type(&self) -> TypeKind {
+        self.msg_type
+    }
+}
+
+impl MqttBytesMessage for SubackMessage {
+    fn as_bytes(&self) -> &[u8] {
+        &self.bytes.as_ref().unwrap()
+    }
+}
+
+impl From<BaseMessage> for SubackMessage {
+    fn from(base: BaseMessage) -> Self {
+        v5_unpacket::suback(base)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct UnsubackMessage {
+    pub msg_type: TypeKind,
+    pub message_id: u16,
+    pub codes: Vec<u8>,
+    pub properties: Option<Vec<PropertyItem>>,
+    pub bytes: Option<Vec<u8>>,
+}
+
+impl MqttMessage for UnsubackMessage {
+    fn get_message_type(&self) -> TypeKind {
+        self.msg_type
+    }
+}
+
+impl MqttBytesMessage for UnsubackMessage {
+    fn as_bytes(&self) -> &[u8] {
+        &self.bytes.as_ref().unwrap()
+    }
+}
+
+impl From<BaseMessage> for UnsubackMessage {
+    fn from(base: BaseMessage) -> Self {
+        v5_unpacket::unsuback(base)
     }
 }
