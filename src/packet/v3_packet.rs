@@ -12,11 +12,19 @@ pub fn connect(msg: &ConnectMessage) -> Vec<u8> {
 
     body.push(msg.protocol_level as u8);
 
-    body.push(pack_connect_flags(msg).unwrap());
+    body.push(
+        pack_connect_flags(
+            msg.clean_session,
+            msg.will_flag,
+            msg.will_qos,
+            msg.will_retain,
+            msg.payload.user_name.as_ref(),
+            msg.payload.password.as_ref(),
+        ).unwrap());
 
     body = [body, pack_short_int(msg.keep_alive as u16)].concat();
 
-    body = [body, pack_client_id(msg)].concat();
+    body = [body, pack_client_id(&msg.payload.client_id)].concat();
 
     if msg.will_flag == MqttWillFlag::Enable {
         if let Some(will_topic) = pack_will_topic(msg) {

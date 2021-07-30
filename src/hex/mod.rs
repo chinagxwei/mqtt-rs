@@ -1,7 +1,8 @@
 use num_enum::TryFromPrimitive;
 use crate::types::TypeKind;
 use std::convert::{TryFrom, Infallible};
-use crate::tools::un_pack_tool::{parse_long_int, parse_string, parse_byte, parse_short_int, get_remaining_data, get_remaining_length, var_int};
+use crate::tools::un_pack_tool::{parse_long_int, parse_string, parse_byte, parse_short_int, get_remaining_data, get_remaining_length, unpack_var_int};
+use crate::tools::pack_tool::{pack_long_int, pack_string, pack_byte, pack_short_int, pack_var_int};
 
 pub mod reason_code;
 pub mod un_pack_property;
@@ -18,6 +19,53 @@ pub enum PropertyValue {
 
 #[derive(Debug, Clone)]
 pub struct PropertyItem(Property, PropertyValue);
+
+impl PropertyItem {
+    pub fn as_long(&self) -> Option<u32> {
+        match self.1 {
+            PropertyValue::Long(val) => {
+                Some(val)
+            }
+            _ => { None }
+        }
+    }
+
+    pub fn as_short(&self) -> Option<u16> {
+        match self.1 {
+            PropertyValue::Short(val) => {
+                Some(val)
+            }
+            _ => { None }
+        }
+    }
+
+    pub fn as_byte(&self) -> Option<u8> {
+        match self.1 {
+            PropertyValue::Byte(val) => {
+                Some(val)
+            }
+            _ => { None }
+        }
+    }
+
+    pub fn as_str(&self) -> Option<&String> {
+        match self.1 {
+            PropertyValue::String(ref val) => {
+                Some(val)
+            }
+            _ => { None }
+        }
+    }
+
+    pub fn as_map(&self) -> Option<(&String, &String)> {
+        match self.1 {
+            PropertyValue::Map(ref key, ref value) => {
+                Some((key, value))
+            }
+            _ => { None }
+        }
+    }
+}
 
 #[derive(Debug, Copy, Clone, TryFromPrimitive)]
 #[repr(u8)]
@@ -194,7 +242,73 @@ impl Property {
         }
     }
 
-    pub fn property_handle<'a>(&self, length: &mut u32, data: &'a [u8]) -> Option<(PropertyItem, &'a [u8])> {
+    pub fn pack_property_handle(data: &Vec<PropertyItem>) -> (usize, Vec<u8>) {
+        let mut length = 0_usize;
+        let mut body = vec![];
+
+        for item in data {
+            match item.0 {
+                Property::SessionExpiryInterval |
+                Property::MessageExpiryInterval |
+                Property::WillDelayInterval |
+                Property::MaximumPacketSize => {
+                    let long_val = pack_long_int(item.as_long().unwrap());
+                    length += 5;
+                    body = [body, long_val].concat();
+                }
+                Property::ContentType |
+                Property::ResponseTopic |
+                Property::CorrelationData |
+                Property::AssignedClientIdentifier |
+                Property::ResponseInformation |
+                Property::ServerReference |
+                Property::ReasonString |
+                Property::AuthenticationMethod |
+                Property::AuthenticationData => {
+                    let string_val = pack_string(item.as_str().unwrap());
+                    length += string_val.len() + 3;
+                    body = [body, string_val].concat();
+                }
+                Property::PayloadFormatIndicator |
+                Property::MaximumQos |
+                Property::RetainAvailable |
+                Property::WildcardSubscriptionAvailable |
+                Property::SubscriptionIdentifierAvailable |
+                Property::SharedSubscriptionAvailable |
+                Property::RequestProblemInformation |
+                Property::RequestResponseInformation => {
+                    let byte_val = pack_byte(item.as_byte().unwrap());
+                    length += 2;
+                    body = [body, byte_val].concat();
+                }
+                Property::ServerKeepAlive |
+                Property::ReceiveMaximum |
+                Property::TopicAlias |
+                Property::TopicAliasMaximum => {
+                    let short_val = pack_short_int(item.as_short().unwrap());
+                    length += 3;
+                    body = [body, short_val].concat();
+                }
+                Property::UserProperty => {
+                    let user = item.as_map();
+                    let user_key = pack_string(user.as_ref().unwrap().0);
+                    let user_value = pack_string(user.as_ref().unwrap().1);
+                    length += (user_key.len() + user_value.len() + 5);
+                    body.push(Property::UserProperty as u8);
+                    body = [body, user_key, user_value].concat();
+                }
+                Property::SubscriptionIdentifier => {
+                    let si = pack_var_int(1);
+                    length += (si.len() + 1);
+                    body = [body, si].concat();
+                }
+            }
+        }
+
+        (length, body)
+    }
+
+    pub fn unpack_property_handle<'a>(&self, length: &mut u32, data: &'a [u8]) -> Option<(PropertyItem, &'a [u8])> {
         match self {
             Property::SessionExpiryInterval |
             Property::MessageExpiryInterval |
@@ -244,7 +358,7 @@ impl Property {
                 Some((PropertyItem(Property::UserProperty, PropertyValue::Map(user_key, user_value)), last_data.unwrap()))
             }
             Property::SubscriptionIdentifier => {
-                let (val, last_data) = var_int(data);
+                let (val, last_data) = unpack_var_int(data);
                 *length -= (val.len() as u32 + 1);
                 Some((PropertyItem(Property::SubscriptionIdentifier, PropertyValue::String(val)), last_data))
             }

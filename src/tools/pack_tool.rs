@@ -1,5 +1,5 @@
 use crate::types::TypeKind;
-use crate::protocol::{MqttSessionPresent, MqttCleanSession, MqttWillFlag, MqttQos, MqttDup, MqttRetain};
+use crate::protocol::{MqttSessionPresent, MqttCleanSession, MqttWillFlag, MqttQos, MqttDup, MqttRetain, MqttUsernameFlag, MqttPasswordFlag};
 use crate::hex::reason_code::ReasonCodeV3;
 use crate::message::v3::ConnectMessage;
 
@@ -7,6 +7,14 @@ pub fn pack_string(str: &String) -> Vec<u8> {
     let str = str.as_bytes().to_vec();
     let head = pack_short_int((str.len() as u16));
     [head, str].concat()
+}
+
+pub fn pack_byte(data: u8) -> Vec<u8> {
+    data.to_ne_bytes()
+        .iter()
+        .rev()
+        .cloned()
+        .collect::<Vec<u8>>()
 }
 
 pub fn pack_short_int(data: u16) -> Vec<u8> {
@@ -23,6 +31,10 @@ pub fn pack_long_int(data: u32) -> Vec<u8> {
         .rev()
         .cloned()
         .collect::<Vec<u8>>()
+}
+
+pub fn pack_var_int(int:usize)-> Vec<u8>{
+    pack_remaining_length(int)
 }
 
 pub fn pack_message_short_id(message_id: u16) -> Vec<u8> {
@@ -58,33 +70,40 @@ pub fn pack_protocol_name(msg: &ConnectMessage) -> Vec<u8> {
     pack_string(&msg.protocol_name)
 }
 
-pub fn pack_connect_flags(msg: &ConnectMessage) -> Result<u8, String> {
+pub fn pack_connect_flags(
+    clean_session: MqttCleanSession,
+    will_flag:MqttWillFlag,
+    will_qos:MqttQos,
+    will_retain:MqttRetain,
+    username_flag:Option<&String>,
+    password_flag: Option<&String>
+) -> Result<u8, String> {
     let mut connect_flags = 0_u8;
-    if msg.clean_session == MqttCleanSession::Enable {
+    if clean_session == MqttCleanSession::Enable {
         connect_flags |= 1 << 1;
     }
-    if msg.will_flag == MqttWillFlag::Enable {
+    if will_flag == MqttWillFlag::Enable {
         connect_flags |= 1 << 2;
-        if msg.will_qos > MqttQos::Qos2 {
-            return Err(format!("{} not supported", msg.will_qos as u8));
+        if will_qos > MqttQos::Qos2 {
+            return Err(format!("{} not supported", will_qos as u8));
         } else {
-            connect_flags |= (msg.will_qos as u8) << 3;
+            connect_flags |= (will_qos as u8) << 3;
         }
-        if msg.will_retain == MqttRetain::Enable {
+        if will_retain == MqttRetain::Enable {
             connect_flags |= 1 << 5;
         }
     }
-    if msg.payload.user_name.is_some() {
+    if username_flag.is_some() {
         connect_flags |= 1 << 6;
     }
-    if msg.payload.password.is_some() {
+    if password_flag.is_some() {
         connect_flags |= 1 << 7;
     }
     Ok(connect_flags)
 }
 
-pub fn pack_client_id(msg: &ConnectMessage) -> Vec<u8> {
-    pack_string(&msg.payload.client_id)
+pub fn pack_client_id(client_id: &String) -> Vec<u8> {
+    pack_string(client_id)
 }
 
 pub fn pack_will_topic(msg: &ConnectMessage) -> Option<Vec<u8>> {

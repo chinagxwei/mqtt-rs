@@ -150,7 +150,7 @@ pub fn get_remaining_data(data: &[u8]) -> &[u8] {
     data.get(head_bytes..(remaining_length + head_bytes)).unwrap()
 }
 
-pub fn var_int(data: &[u8]) -> (String, &[u8]) {
+pub fn unpack_var_int(data: &[u8]) -> (String, &[u8]) {
     let (remaining_length, head_bytes) = get_remaining_length(data).unwrap();
     let (mut result, mut shift) = (0, 0);
 
