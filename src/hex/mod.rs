@@ -229,7 +229,7 @@ impl Property {
         }
     }
 
-    pub fn is_will_properties(&self) -> bool {
+    pub fn is_will_property(&self) -> bool {
         match self {
             Property::PayloadFormatIndicator |
             Property::MessageExpiryInterval |
@@ -241,71 +241,76 @@ impl Property {
             _ => { false }
         }
     }
+}
 
-    pub fn pack_property_handle(data: &Vec<PropertyItem>) -> (usize, Vec<u8>) {
-        let mut length = 0_usize;
-        let mut body = vec![];
+impl Property {
+    pub fn pack_property_handle(item: &PropertyItem, length: &mut usize, body: &mut Vec<u8>) {
 
-        for item in data {
-            match item.0 {
-                Property::SessionExpiryInterval |
-                Property::MessageExpiryInterval |
-                Property::WillDelayInterval |
-                Property::MaximumPacketSize => {
-                    let long_val = pack_long_int(item.as_long().unwrap());
-                    length += 5;
-                    body = [body, long_val].concat();
-                }
-                Property::ContentType |
-                Property::ResponseTopic |
-                Property::CorrelationData |
-                Property::AssignedClientIdentifier |
-                Property::ResponseInformation |
-                Property::ServerReference |
-                Property::ReasonString |
-                Property::AuthenticationMethod |
-                Property::AuthenticationData => {
-                    let string_val = pack_string(item.as_str().unwrap());
-                    length += string_val.len() + 3;
-                    body = [body, string_val].concat();
-                }
-                Property::PayloadFormatIndicator |
-                Property::MaximumQos |
-                Property::RetainAvailable |
-                Property::WildcardSubscriptionAvailable |
-                Property::SubscriptionIdentifierAvailable |
-                Property::SharedSubscriptionAvailable |
-                Property::RequestProblemInformation |
-                Property::RequestResponseInformation => {
-                    let byte_val = pack_byte(item.as_byte().unwrap());
-                    length += 2;
-                    body = [body, byte_val].concat();
-                }
-                Property::ServerKeepAlive |
-                Property::ReceiveMaximum |
-                Property::TopicAlias |
-                Property::TopicAliasMaximum => {
-                    let short_val = pack_short_int(item.as_short().unwrap());
-                    length += 3;
-                    body = [body, short_val].concat();
-                }
-                Property::UserProperty => {
-                    let user = item.as_map();
-                    let user_key = pack_string(user.as_ref().unwrap().0);
-                    let user_value = pack_string(user.as_ref().unwrap().1);
-                    length += (user_key.len() + user_value.len() + 5);
-                    body.push(Property::UserProperty as u8);
-                    body = [body, user_key, user_value].concat();
-                }
-                Property::SubscriptionIdentifier => {
-                    let si = pack_var_int(1);
-                    length += (si.len() + 1);
-                    body = [body, si].concat();
-                }
+        body.push(item.0 as u8);
+
+        match item.0 {
+            Property::SessionExpiryInterval |
+            Property::MessageExpiryInterval |
+            Property::WillDelayInterval |
+            Property::MaximumPacketSize => {
+                let long_val = pack_long_int(item.as_long().unwrap());
+                *length += 5;
+                // body = [body, long_val].concat();
+                body.extend(long_val);
+            }
+            Property::ContentType |
+            Property::ResponseTopic |
+            Property::CorrelationData |
+            Property::AssignedClientIdentifier |
+            Property::ResponseInformation |
+            Property::ServerReference |
+            Property::ReasonString |
+            Property::AuthenticationMethod |
+            Property::AuthenticationData => {
+                let string_val = pack_string(item.as_str().unwrap());
+                *length += string_val.len() + 3;
+                // body = [body, string_val].concat();
+                body.extend(string_val);
+            }
+            Property::PayloadFormatIndicator |
+            Property::MaximumQos |
+            Property::RetainAvailable |
+            Property::WildcardSubscriptionAvailable |
+            Property::SubscriptionIdentifierAvailable |
+            Property::SharedSubscriptionAvailable |
+            Property::RequestProblemInformation |
+            Property::RequestResponseInformation => {
+                let byte_val = pack_byte(item.as_byte().unwrap());
+                *length += 2;
+                // body = [body, byte_val].concat();
+                body.extend(byte_val);
+            }
+            Property::ServerKeepAlive |
+            Property::ReceiveMaximum |
+            Property::TopicAlias |
+            Property::TopicAliasMaximum => {
+                let short_val = pack_short_int(item.as_short().unwrap());
+                *length += 3;
+                // body = [body, short_val].concat();
+                body.extend(short_val);
+            }
+            Property::UserProperty => {
+                let user = item.as_map();
+                let user_key = pack_string(user.as_ref().unwrap().0);
+                let user_value = pack_string(user.as_ref().unwrap().1);
+                *length += (user_key.len() + user_value.len() + 5);
+                body.push(Property::UserProperty as u8);
+                // body = [body, user_key, user_value].concat();
+                body.extend(user_key);
+                body.extend(user_value);
+            }
+            Property::SubscriptionIdentifier => {
+                let si = pack_var_int(1);
+                *length += (si.len() + 1);
+                // body = [body, si].concat();
+                body.extend(si);
             }
         }
-
-        (length, body)
     }
 
     pub fn unpack_property_handle<'a>(&self, length: &mut u32, data: &'a [u8]) -> Option<(PropertyItem, &'a [u8])> {

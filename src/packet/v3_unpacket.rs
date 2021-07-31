@@ -12,6 +12,7 @@ pub fn connect(mut base: BaseMessage) -> ConnectMessage {
     let (mut variable_header, last_data) = get_connect_variable_header(message_bytes);
 
     let payload = get_connect_payload_data(
+        variable_header.protocol_level.unwrap(),
         last_data,
         variable_header.will_flag.unwrap(),
         variable_header.username_flag.unwrap(),

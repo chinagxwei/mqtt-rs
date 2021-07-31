@@ -280,3 +280,31 @@ pub fn pub_and_sub(mut length: u32, mut data: &[u8]) -> Vec<PropertyItem>{
     println!("{:?}", properties);
     properties
 }
+
+pub fn will_properties(mut length: u32, mut data: &[u8]) -> Vec<PropertyItem>{
+    let mut properties = vec![];
+    loop {
+        let property = data[0];
+        match Property::try_from(property) {
+            Ok(p) => {
+                if p.is_will_property() {
+                    if let Some((item, last_data)) = p.unpack_property_handle(&mut length, data.get(1..).unwrap()) {
+                        data = last_data;
+                        properties.push(item);
+                    }
+                }
+            }
+            Err(e) => {
+                println!("Property {:?} not exist", e)
+            }
+        }
+
+        println!("{}", property);
+
+        if length <= 0 {
+            break;
+        }
+    }
+    println!("{:?}", properties);
+    properties
+}

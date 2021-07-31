@@ -26,13 +26,14 @@ pub fn connect(mut base: BaseMessage) -> ConnectMessage {
     };
 
     let mut payload = get_connect_payload_data(
+        variable_header.protocol_level.unwrap(),
         last_data,
         variable_header.will_flag.unwrap(),
         variable_header.username_flag.unwrap(),
         variable_header.password_flag.unwrap(),
     );
 
-    payload.properties = properties;
+    // payload.properties = properties;
 
     ConnectMessage {
         msg_type: base.msg_type,
@@ -43,6 +44,7 @@ pub fn connect(mut base: BaseMessage) -> ConnectMessage {
         will_qos: variable_header.will_qos.unwrap(),
         will_retain: variable_header.will_retain.unwrap(),
         keep_alive: variable_header.keep_alive.unwrap(),
+        properties,
         payload,
         bytes: Some(base.bytes),
     }

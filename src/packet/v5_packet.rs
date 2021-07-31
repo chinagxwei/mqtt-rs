@@ -20,11 +20,17 @@ pub fn connect(msg: &ConnectMessage) -> Vec<u8> {
 
     body = [body, pack_short_int(msg.keep_alive as u16)].concat();
 
-    body = [body, pack_property::connect(msg.payload.properties.as_ref().unwrap())].concat();
+    if msg.properties.is_some(){
+        body = [body, pack_property::connect(msg.properties.as_ref().unwrap())].concat();
+    }
 
     body = [body, pack_client_id(&msg.payload.client_id)].concat();
 
     if msg.will_flag == MqttWillFlag::Enable {
+        if msg.payload.properties.is_some() {
+            body = [body, pack_property::will_properties(msg.payload.properties.as_ref().unwrap())].concat();
+        }
+
         if msg.payload.will_topic.is_some() {
             let will_topic = pack_string(msg.payload.will_topic.as_ref().unwrap());
             body = [body, will_topic].concat();
@@ -49,3 +55,5 @@ pub fn connect(msg: &ConnectMessage) -> Vec<u8> {
 
     [header, body].concat()
 }
+
+

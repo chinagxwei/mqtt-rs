@@ -3,6 +3,7 @@ use std::convert::{TryFrom, TryInto};
 use crate::protocol::{MqttProtocolLevel, MqttCleanSession, MqttWillFlag, MqttUsernameFlag, MqttPasswordFlag, MqttRetain, MqttQos, MqttDup};
 use crate::message::v3::VariableHeader;
 use crate::message::ConnectMessagePayload;
+use crate::hex::un_pack_property;
 
 pub fn get_type(data: &[u8]) -> (Option<TypeKind>, Option<MqttRetain>, Option<MqttQos>, Option<MqttDup>, &[u8]) {
     let kind = TypeKind::try_from((data[0] >> 4)).ok();
@@ -31,14 +32,27 @@ pub fn get_publish_header(data: u8) -> (Option<MqttRetain>, Option<MqttQos>, Opt
     )
 }
 
-pub fn get_connect_payload_data(data: &[u8], will_flag: MqttWillFlag, username_flag: MqttUsernameFlag, password_flag: MqttPasswordFlag) -> ConnectMessagePayload {
+pub fn get_connect_payload_data(protocol_level: MqttProtocolLevel, data: &[u8], will_flag: MqttWillFlag, username_flag: MqttUsernameFlag, password_flag: MqttPasswordFlag) -> ConnectMessagePayload {
     let (client_id, last_data) = parse_string(data).unwrap();
-    let (will_topic, will_message, last_data) = if MqttWillFlag::Enable == will_flag {
+
+    let (properties, will_topic, will_message, last_data) = if MqttWillFlag::Enable == will_flag {
+        let (properties, last_data) = if protocol_level == MqttProtocolLevel::Level5 {
+            let (properties_total_length, last_data) = parse_byte(last_data.unwrap());
+
+            if properties_total_length > 0 {
+                (Some(un_pack_property::will_properties(properties_total_length as u32, last_data)), last_data.get(properties_total_length as usize..))
+            } else {
+                (None, Some(last_data))
+            }
+        } else {
+            (None, last_data)
+        };
+
         let (will_topic, will_last_data) = parse_string(last_data.unwrap()).unwrap();
         let (will_message, will_last_data) = parse_string(will_last_data.unwrap()).unwrap();
-        (Some(will_topic), Some(will_message), will_last_data)
+        (properties, Some(will_topic), Some(will_message), will_last_data)
     } else {
-        (None, None, last_data)
+        (None, None, None, last_data)
     };
 
     let (user_name, last_data) = if MqttUsernameFlag::Enable == username_flag {
@@ -53,13 +67,13 @@ pub fn get_connect_payload_data(data: &[u8], will_flag: MqttWillFlag, username_f
         ("".to_string(), last_data)
     };
     println!("client ID: {}", client_id);
-    ConnectMessagePayload{
+    ConnectMessagePayload {
         client_id,
         will_topic,
         will_message,
         user_name: Some(user_name),
         password: Some(password),
-        properties: None
+        properties,
     }
 }
 

@@ -19,6 +19,7 @@ pub struct ConnectMessage {
     pub will_retain: MqttRetain,
     pub keep_alive: u16,
     pub payload: ConnectMessagePayload,
+    pub properties: Option<Vec<PropertyItem>>,
     pub bytes: Option<Vec<u8>>,
 }
 
