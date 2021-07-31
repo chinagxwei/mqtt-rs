@@ -179,4 +179,3 @@ impl ReasonPhrases {
         *self as u8
     }
 }
-
