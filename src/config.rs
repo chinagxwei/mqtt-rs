@@ -33,7 +33,7 @@ pub struct Config {
     client_id: String,
     username: Option<String>,
     password: Option<String>,
-    keep_alive: u32,
+    keep_alive: u16,
     protocol_name: String,
     protocol_level: MqttProtocolLevel,
     delay: u32,
@@ -52,7 +52,7 @@ impl Config {
     pub fn password(&self) -> Option<String> {
         self.password.to_owned()
     }
-    pub fn keep_alive(&self) -> u32 {
+    pub fn keep_alive(&self) -> u16 {
         self.keep_alive
     }
     pub fn protocol_name(&self) -> String {
@@ -77,7 +77,7 @@ pub struct ConfigBuilder {
     client_id: Option<String>,
     username: Option<String>,
     password: Option<String>,
-    keep_alive: Option<u32>,
+    keep_alive: Option<u16>,
     protocol_name: Option<String>,
     protocol_level: Option<MqttProtocolLevel>,
     delay: Option<u32>,
@@ -100,42 +100,42 @@ impl ConfigBuilder {
         }
     }
 
-    pub fn set_client_id<S: Into<String>>(mut self, client_id: S) -> ConfigBuilder {
+    pub fn client_id<S: Into<String>>(mut self, client_id: S) -> ConfigBuilder {
         self.client_id = Option::from(client_id.into());
         self
     }
 
-    pub fn set_username<S: Into<String>>(mut self, username: S) -> ConfigBuilder {
+    pub fn username<S: Into<String>>(mut self, username: S) -> ConfigBuilder {
         self.username = Option::from(username.into());
         self
     }
-    pub fn set_password<S: Into<String>>(mut self, password: S) -> ConfigBuilder {
+    pub fn password<S: Into<String>>(mut self, password: S) -> ConfigBuilder {
         self.password = Option::from(password.into());
         self
     }
-    pub fn set_keep_alive(mut self, keep_alive: u32) -> ConfigBuilder {
+    pub fn keep_alive(mut self, keep_alive: u16) -> ConfigBuilder {
         self.keep_alive = Option::from(keep_alive);
         self
     }
 
-    pub fn set_protocol_name<S: Into<String>>(mut self, protocol_name: S) -> ConfigBuilder {
+    pub fn protocol_name<S: Into<String>>(mut self, protocol_name: S) -> ConfigBuilder {
         self.protocol_name = Option::from(protocol_name.into());
         self
     }
-    pub fn set_protocol_level(mut self, protocol_level: MqttProtocolLevel) -> ConfigBuilder {
+    pub fn protocol_level(mut self, protocol_level: MqttProtocolLevel) -> ConfigBuilder {
         self.protocol_level = Option::from(protocol_level);
         self
     }
-    pub fn set_delay(mut self, delay: u32) -> ConfigBuilder {
+    pub fn delay(mut self, delay: u32) -> ConfigBuilder {
         self.delay = Option::from(delay);
         self
     }
-    pub fn set_max_attempts(mut self, max_attempts: i32) -> ConfigBuilder {
+    pub fn max_attempts(mut self, max_attempts: i32) -> ConfigBuilder {
         self.max_attempts = Option::from(max_attempts);
         self
     }
 
-    pub fn set_will(mut self, will: Will) -> ConfigBuilder {
+    pub fn will(mut self, will: Will) -> ConfigBuilder {
         self.will = Option::from(will);
         self
     }
