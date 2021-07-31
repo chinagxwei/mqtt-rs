@@ -22,87 +22,103 @@ pub fn connect(msg: &ConnectMessage) -> Vec<u8> {
             msg.payload.password.as_ref(),
         ).unwrap());
 
-    body = [body, pack_short_int(msg.keep_alive as u16)].concat();
+    body.extend(pack_short_int(msg.keep_alive as u16));
 
-    body = [body, pack_client_id(&msg.payload.client_id)].concat();
+    body.extend(pack_client_id(&msg.payload.client_id));
 
     if msg.will_flag == MqttWillFlag::Enable {
         if let Some(will_topic) = pack_will_topic(msg) {
-            body = [body, will_topic].concat();
+            body.extend(will_topic);
         }
         if let Some(will_message) = pack_will_message(msg) {
-            body = [body, will_message].concat();
+            body.extend(will_message);
         }
     }
 
     if let Some(username) = pack_username(msg) {
-        body = [body, username].concat();
+        body.extend(username);
     }
 
     if let Some(password) = pack_password(msg) {
-        body = [body, password].concat();
+        body.extend(password);
     }
-    let header = pack_header(msg.msg_type, body.len());
+    let mut package = pack_header(msg.msg_type, body.len());
 
-    [header, body].concat()
+    package.extend(body);
+
+    package
 }
 
 pub fn connack(session_present: MqttSessionPresent, return_code: ReasonCodeV3) -> Vec<u8> {
     let body = vec![session_present as u8, return_code as u8];
-    let head = pack_header(TypeKind::CONNACK, body.len());
-    [head, body].concat()
+
+    let mut package = pack_header(TypeKind::CONNACK, body.len());
+
+    package.extend(body);
+
+    package
 }
 
 pub fn publish(msg: &PublishMessage) -> Vec<u8> {
     let mut body = pack_string(&msg.topic);
 
     if msg.qos > MqttQos::Qos0 {
-        body = [body, pack_message_short_id(msg.message_id)].concat();
+        body.extend(pack_message_short_id(msg.message_id));
     }
 
-    body = [body, msg.msg_body.as_bytes().to_vec()].concat();
+    body.extend(msg.msg_body.as_bytes().to_vec());
 
-    let head = pack_publish_header(msg.msg_type, body.len(), msg.qos, msg.dup, msg.retain);
+    let mut package = pack_publish_header(msg.msg_type, body.len(), msg.qos, msg.dup, msg.retain);
 
-    [head, body].concat()
+    package.extend(body);
+
+    package
 }
 
 pub fn subscribe(msg: &SubscribeMessage) -> Vec<u8> {
     let mut body = pack_message_short_id(msg.message_id);
 
-    body = [body, pack_string(&msg.topic)].concat();
+    body.extend(pack_string(&msg.topic));
 
     body.push(msg.qos as u8);
 
-    let head = pack_header(TypeKind::SUBSCRIBE, body.len());
+    let mut package = pack_header(TypeKind::SUBSCRIBE, body.len());
 
-    [head, body].concat()
+    package.extend(body);
+
+    package
 }
 
 pub fn suback(msg: &SubackMessage) -> Vec<u8> {
     let mut body = pack_message_short_id(msg.message_id);
 
-    body = [body, msg.codes.clone()].concat();
+    body.extend(msg.codes.clone());
 
-    let head = pack_header(TypeKind::SUBACK, body.len());
+    let mut package = pack_header(TypeKind::SUBACK, body.len());
 
-    [head, body].concat()
+    package.extend(body);
+
+    package
 }
 
 pub fn unsubscribe(msg: &UnsubscribeMessage) -> Vec<u8> {
     let mut body = pack_message_short_id(msg.message_id);
 
-    body = [body, pack_string(&msg.topic)].concat();
+    body.extend(pack_string(&msg.topic));
 
-    let head = pack_header(TypeKind::UNSUBSCRIBE, body.len());
+    let mut package = pack_header(TypeKind::UNSUBSCRIBE, body.len());
 
-    [head, body].concat()
+    package.extend(body);
+
+    package
 }
 
 pub fn not_payload(message_id: u16, msg_type: TypeKind) -> Vec<u8> {
-    let mut body = pack_message_short_id(message_id);
+    let body = pack_message_short_id(message_id);
 
-    let head = pack_header(msg_type, body.len());
+    let mut package = pack_header(msg_type, body.len());
 
-    [head, body].concat()
+    package.extend(body);
+
+    package
 }

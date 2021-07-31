@@ -7,14 +7,12 @@ use std::convert::TryFrom;
 use crate::hex::reason_code::ReasonPhrases;
 
 pub fn connect(mut base: BaseMessage) -> ConnectMessage {
+
     let message_bytes = base.bytes.get(2..).unwrap();
+
     let (mut variable_header, last_data) = get_connect_variable_header(message_bytes);
 
-    // println!("v5 {:?}", last_data);
-
     let (properties_total_length, last_data) = parse_byte(last_data);
-
-    // println!("properties total length: {}", properties_total_length);
 
     let (properties, last_data) = if properties_total_length > 0 {
         (
@@ -32,8 +30,6 @@ pub fn connect(mut base: BaseMessage) -> ConnectMessage {
         variable_header.username_flag.unwrap(),
         variable_header.password_flag.unwrap(),
     );
-
-    // payload.properties = properties;
 
     ConnectMessage {
         msg_type: base.msg_type,

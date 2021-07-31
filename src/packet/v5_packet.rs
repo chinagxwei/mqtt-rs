@@ -18,42 +18,44 @@ pub fn connect(msg: &ConnectMessage) -> Vec<u8> {
             msg.payload.password.as_ref(),
         ).unwrap());
 
-    body = [body, pack_short_int(msg.keep_alive as u16)].concat();
+    body.extend(pack_short_int(msg.keep_alive as u16));
 
     if msg.properties.is_some(){
-        body = [body, pack_property::connect(msg.properties.as_ref().unwrap())].concat();
+        body.extend(pack_property::connect(msg.properties.as_ref().unwrap()));
     }
 
-    body = [body, pack_client_id(&msg.payload.client_id)].concat();
+    body.extend(pack_client_id(&msg.payload.client_id));
 
     if msg.will_flag == MqttWillFlag::Enable {
         if msg.payload.properties.is_some() {
-            body = [body, pack_property::will_properties(msg.payload.properties.as_ref().unwrap())].concat();
+            body.extend(pack_property::will_properties(msg.payload.properties.as_ref().unwrap()));
         }
 
         if msg.payload.will_topic.is_some() {
             let will_topic = pack_string(msg.payload.will_topic.as_ref().unwrap());
-            body = [body, will_topic].concat();
+            body.extend(will_topic);
         }
         if msg.payload.will_message.is_some() {
             let will_message = pack_string(msg.payload.will_message.as_ref().unwrap());
-            body = [body, will_message].concat();
+            body.extend(will_message);
         }
     }
 
     if msg.payload.user_name.is_some() {
         let username = pack_string(msg.payload.user_name.as_ref().unwrap());
-        body = [body, username].concat();
+        body.extend(username);
     }
 
     if msg.payload.password.is_some() {
         let password = pack_string(msg.payload.password.as_ref().unwrap());
-        body = [body, password].concat();
+        body.extend(password);
     }
 
-    let header = pack_header(msg.msg_type, body.len());
+    let mut package = pack_header(msg.msg_type, body.len());
 
-    [header, body].concat()
+    package.extend(body);
+
+    package
 }
 
 

@@ -5,6 +5,9 @@ use crate::message::v3::VariableHeader;
 use crate::message::ConnectMessagePayload;
 use crate::hex::un_pack_property;
 
+///
+/// 获取报文种类
+///
 pub fn get_type(data: &[u8]) -> (Option<TypeKind>, Option<MqttRetain>, Option<MqttQos>, Option<MqttDup>, &[u8]) {
     let kind = TypeKind::try_from((data[0] >> 4)).ok();
     if kind.unwrap() == TypeKind::PUBLISH {
@@ -14,6 +17,9 @@ pub fn get_type(data: &[u8]) -> (Option<TypeKind>, Option<MqttRetain>, Option<Mq
     (kind, None, None, None, get_remaining_data(data))
 }
 
+///
+/// 获取协议名称和协议版本
+///
 pub fn get_protocol_name_and_version(data: &[u8]) -> (Option<String>, Option<MqttProtocolLevel>) {
     let slice = get_remaining_data(data);
     let protocol_name = Option::from(String::from_utf8_lossy(slice).into_owned());
@@ -21,6 +27,9 @@ pub fn get_protocol_name_and_version(data: &[u8]) -> (Option<String>, Option<Mqt
     (protocol_name, mqtt_version)
 }
 
+///
+/// 获取发布消息头
+///
 pub fn get_publish_header(data: u8) -> (Option<MqttRetain>, Option<MqttQos>, Option<MqttDup>) {
     let retain = data & 1;
     let qos = (data >> 1) & 3;
@@ -32,6 +41,9 @@ pub fn get_publish_header(data: u8) -> (Option<MqttRetain>, Option<MqttQos>, Opt
     )
 }
 
+///
+/// 获取 初始连接的 负载数据
+///
 pub fn get_connect_payload_data(protocol_level: MqttProtocolLevel, data: &[u8], will_flag: MqttWillFlag, username_flag: MqttUsernameFlag, password_flag: MqttPasswordFlag) -> ConnectMessagePayload {
     let (client_id, last_data) = parse_string(data).unwrap();
 
@@ -77,6 +89,9 @@ pub fn get_connect_payload_data(protocol_level: MqttProtocolLevel, data: &[u8], 
     }
 }
 
+///
+/// 获取可变报文头数据
+///
 pub fn get_connect_variable_header(data: &[u8]) -> (VariableHeader, &[u8]) {
     let slice = get_remaining_data(data);
     let protocol_name = Option::from(String::from_utf8_lossy(slice).into_owned());
@@ -104,10 +119,16 @@ pub fn get_connect_variable_header(data: &[u8]) -> (VariableHeader, &[u8]) {
     )
 }
 
+///
+/// 解析报文 byte 数据
+///
 pub fn parse_byte(data: &[u8]) -> (u8, &[u8]) {
     (data[0], data.get(1..).unwrap())
 }
 
+///
+/// 解析报文 short int 数据
+///
 pub fn parse_short_int(data: &[u8]) -> (u16, &[u8]) {
     println!("parse_short_int: {:?}", data.get(..2).unwrap());
     let bytes = data.get(..2).unwrap();
@@ -117,6 +138,9 @@ pub fn parse_short_int(data: &[u8]) -> (u16, &[u8]) {
     (short_int, data.get(2..).unwrap())
 }
 
+///
+/// 解析报文 long int 数据
+///
 pub fn parse_long_int(data: &[u8]) -> (u32, &[u8]) {
     println!("parse_long_int: {:?}", data.get(..4).unwrap());
     let bytes = data.get(..4).unwrap();
@@ -126,6 +150,9 @@ pub fn parse_long_int(data: &[u8]) -> (u32, &[u8]) {
     (long_int, data.get(4..).unwrap())
 }
 
+///
+/// 解析报文 string 数据
+///
 pub fn parse_string(data: &[u8]) -> Result<(String, Option<&[u8]>), &str> {
     let length = data[1];
     if length as usize > data.len() {
@@ -135,7 +162,12 @@ pub fn parse_string(data: &[u8]) -> Result<(String, Option<&[u8]>), &str> {
     Ok((String::from_utf8(value.to_vec()).expect("parse utf-8 string"), data.get(2 + (length as usize)..)))
 }
 
-
+///
+/// 获取报文剩余长度数据
+///
+/// from http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.pdf 第19页
+///
+///
 pub fn get_remaining_length(data: &[u8]) -> Result<(usize, usize), &'static str> {
     let (ref mut head_index, mut digit, mut multiplier, mut value) = (1_usize, 0, 1, 0);
 
@@ -163,6 +195,7 @@ pub fn get_remaining_data(data: &[u8]) -> &[u8] {
     // println!("last_data: {:?}", data.get(head_bytes..(remaining_length + head_bytes)).unwrap());
     data.get(head_bytes..(remaining_length + head_bytes)).unwrap()
 }
+
 
 pub fn unpack_var_int(data: &[u8]) -> (String, &[u8]) {
     let (remaining_length, head_bytes) = get_remaining_length(data).unwrap();

@@ -3,10 +3,14 @@ use crate::protocol::{MqttSessionPresent, MqttCleanSession, MqttWillFlag, MqttQo
 use crate::hex::reason_code::ReasonCodeV3;
 use crate::message::v3::ConnectMessage;
 
+///
+/// 包装报文字符串数组
+///
 pub fn pack_string(str: &String) -> Vec<u8> {
     let str = str.as_bytes().to_vec();
-    let head = pack_short_int((str.len() as u16));
-    [head, str].concat()
+    let mut content = pack_short_int((str.len() as u16));
+    content.extend(str);
+    content
 }
 
 pub fn pack_byte(data: u8) -> Vec<u8> {
@@ -47,7 +51,12 @@ pub fn pack_message_short_id(message_id: u16) -> Vec<u8> {
 }
 
 pub fn pack_header(header_type: TypeKind, body_length: usize) -> Vec<u8> {
-    [vec![header_type.as_header_byte()], pack_remaining_length(body_length)].concat()
+
+    let mut header = vec![header_type.as_header_byte()];
+
+    header.extend(pack_remaining_length(body_length));
+
+    header
 }
 
 pub fn pack_publish_header(header_type: TypeKind, body_length: usize, qos: MqttQos, dup: MqttDup, retain: MqttRetain) -> Vec<u8> {
@@ -63,7 +72,12 @@ pub fn pack_publish_header(header_type: TypeKind, body_length: usize, qos: MqttQ
     if retain == MqttRetain::Enable {
         r#type |= 1;
     }
-    [vec![r#type], pack_remaining_length(body_length)].concat()
+
+    let mut header = vec![r#type];
+
+    header.extend(pack_remaining_length(body_length));
+
+    header
 }
 
 pub fn pack_protocol_name(msg: &ConnectMessage) -> Vec<u8> {

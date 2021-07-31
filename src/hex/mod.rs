@@ -255,7 +255,6 @@ impl Property {
             Property::MaximumPacketSize => {
                 let long_val = pack_long_int(item.as_long().unwrap());
                 *length += 5;
-                // body = [body, long_val].concat();
                 body.extend(long_val);
             }
             Property::ContentType |
@@ -269,7 +268,6 @@ impl Property {
             Property::AuthenticationData => {
                 let string_val = pack_string(item.as_str().unwrap());
                 *length += string_val.len() + 3;
-                // body = [body, string_val].concat();
                 body.extend(string_val);
             }
             Property::PayloadFormatIndicator |
@@ -282,7 +280,6 @@ impl Property {
             Property::RequestResponseInformation => {
                 let byte_val = pack_byte(item.as_byte().unwrap());
                 *length += 2;
-                // body = [body, byte_val].concat();
                 body.extend(byte_val);
             }
             Property::ServerKeepAlive |
@@ -291,7 +288,6 @@ impl Property {
             Property::TopicAliasMaximum => {
                 let short_val = pack_short_int(item.as_short().unwrap());
                 *length += 3;
-                // body = [body, short_val].concat();
                 body.extend(short_val);
             }
             Property::UserProperty => {
@@ -300,14 +296,12 @@ impl Property {
                 let user_value = pack_string(user.as_ref().unwrap().1);
                 *length += (user_key.len() + user_value.len() + 5);
                 body.push(Property::UserProperty as u8);
-                // body = [body, user_key, user_value].concat();
                 body.extend(user_key);
                 body.extend(user_value);
             }
             Property::SubscriptionIdentifier => {
                 let si = pack_var_int(1);
                 *length += (si.len() + 1);
-                // body = [body, si].concat();
                 body.extend(si);
             }
         }
