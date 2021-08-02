@@ -13,6 +13,9 @@ pub fn pack_string(str: &String) -> Vec<u8> {
     content
 }
 
+///
+/// 包装报文 byte 数组
+///
 pub fn pack_byte(data: u8) -> Vec<u8> {
     data.to_ne_bytes()
         .iter()
@@ -21,6 +24,9 @@ pub fn pack_byte(data: u8) -> Vec<u8> {
         .collect::<Vec<u8>>()
 }
 
+///
+/// 包装报文 short int 数组
+///
 pub fn pack_short_int(data: u16) -> Vec<u8> {
     data.to_ne_bytes()
         .iter()
@@ -29,6 +35,9 @@ pub fn pack_short_int(data: u16) -> Vec<u8> {
         .collect::<Vec<u8>>()
 }
 
+///
+/// 包装报文 long int 数组
+///
 pub fn pack_long_int(data: u32) -> Vec<u8> {
     data.to_ne_bytes()
         .iter()
@@ -37,17 +46,12 @@ pub fn pack_long_int(data: u32) -> Vec<u8> {
         .collect::<Vec<u8>>()
 }
 
-pub fn pack_var_int(int:usize)-> Vec<u8>{
-    pack_remaining_length(int)
+pub fn pack_var_int(len:usize)-> Vec<u8>{
+    pack_remaining_length(len)
 }
 
 pub fn pack_message_short_id(message_id: u16) -> Vec<u8> {
-    message_id
-        .to_ne_bytes()
-        .iter()
-        .rev()
-        .cloned()
-        .collect::<Vec<u8>>()
+    pack_short_int(message_id)
 }
 
 pub fn pack_header(header_type: TypeKind, body_length: usize) -> Vec<u8> {
@@ -80,8 +84,8 @@ pub fn pack_publish_header(header_type: TypeKind, body_length: usize, qos: MqttQ
     header
 }
 
-pub fn pack_protocol_name(msg: &ConnectMessage) -> Vec<u8> {
-    pack_string(&msg.protocol_name)
+pub fn pack_protocol_name(name_str: &String) -> Vec<u8> {
+    pack_string(name_str)
 }
 
 pub fn pack_connect_flags(
@@ -148,6 +152,12 @@ pub fn pack_password(msg: &ConnectMessage) -> Option<Vec<u8>> {
     None
 }
 
+///
+/// 包装报文剩余长度数据
+///
+/// from http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.pdf 第19页
+///
+///
 fn pack_remaining_length(mut length: usize) -> Vec<u8> {
 
     let mut remaining = vec![];

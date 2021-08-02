@@ -174,10 +174,10 @@ pub fn get_remaining_length(data: &[u8]) -> Result<(usize, usize), &'static str>
     loop {
         digit = data[*head_index] & 127;
         value += digit as usize * multiplier;
+        multiplier *= 128;
         if multiplier > 128 * 128 * 128 {
             return Err("Malformed Variable Byte Integer");
         }
-        multiplier *= 128;
         *head_index += 1;
         if (digit & 128) == 0 { break; }
     }

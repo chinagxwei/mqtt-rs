@@ -8,7 +8,7 @@ use crate::tools::un_pack_tool::{get_connect_variable_header, get_connect_payloa
 use std::convert::TryFrom;
 
 pub fn connect(msg: &ConnectMessage) -> Vec<u8> {
-    let mut body: Vec<u8> = pack_protocol_name(msg);
+    let mut body: Vec<u8> = pack_protocol_name(&msg.protocol_name);
 
     body.push(msg.protocol_level as u8);
 

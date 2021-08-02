@@ -1,77 +1,184 @@
-use tokio::runtime::Runtime;
-use tokio::net::{TcpListener, TcpStream};
-use tokio::io::{AsyncReadExt, AsyncWriteExt, AsyncWrite};
-use crate::{ClientID, TopicMessage};
-use crate::protocol::{MqttProtocolLevel, MqttWillFlag, MqttQos, MqttRetain, MqttDup};
-use tokio::sync::mpsc::{Sender, Receiver};
-use crate::message::v3::{ConnackMessage, ConnectMessage, DisconnectMessage, MqttMessageV3, PingrespMessage, PubackMessage, PubcompMessage, PublishMessage, PubrecMessage, PubrelMessage, SubackMessage, SubscribeMessage, UnsubackMessage, UnsubscribeMessage};
+use crate::message::v3::{ConnackMessage, ConnectMessage, DisconnectMessage, MqttMessageV3, PubackMessage, PubcompMessage, PublishMessage, PubrecMessage, PubrelMessage, SubackMessage, SubscribeMessage, UnsubackMessage, UnsubscribeMessage};
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use std::collections::HashMap;
 use tokio::sync::mpsc;
-use crate::message::{BaseMessage, MqttMessage, BaseConnect, MqttMessageKind, MqttBytesMessage};
+use tokio::sync::mpsc::{Sender, Receiver};
+use tokio::net::TcpStream;
+use tokio::io::{AsyncWriteExt, AsyncReadExt};
+use crate::protocol::{MqttProtocolLevel, MqttWillFlag, MqttQos, MqttRetain, MqttDup};
+use crate::message::{MqttMessageKind, MqttBytesMessage, BaseMessage, MqttMessage, BaseConnect};
 use crate::types::TypeKind;
 
 use crate::SUBSCRIPT;
 
-pub struct MqttServer {
-    host: String,
-    port: u32,
-    run_time: Option<Runtime>,
+#[derive(Debug, Clone, Eq, Hash)]
+pub struct ClientID(pub String);
+
+impl AsRef<ClientID> for ClientID {
+    fn as_ref(&self) -> &ClientID {
+        &self
+    }
 }
 
-impl MqttServer {
-    pub fn new<S: Into<String>>(host: S, port: u32) -> MqttServer {
-        MqttServer { host: host.into(), port, run_time: None }
+impl From<String> for ClientID {
+    fn from(s: String) -> Self {
+        ClientID(s)
+    }
+}
+
+impl From<&str> for ClientID {
+    fn from(s: &str) -> Self {
+        ClientID(s.to_owned())
+    }
+}
+
+impl From<&ClientID> for ClientID {
+    fn from(client: &ClientID) -> Self {
+        client.to_owned()
+    }
+}
+
+impl PartialEq for ClientID {
+    fn eq(&self, other: &Self) -> bool {
+        PartialEq::eq(&self.0, &other.0)
     }
 
-    pub fn init(mut self) -> MqttServer {
-        if self.run_time.is_none() {
-            self.run_time = Option::from(Runtime::new().expect("create tokio is error"));
-        }
-        self
+    fn ne(&self, other: &Self) -> bool {
+        PartialEq::ne(&self.0, &other.0)
+    }
+}
+
+
+#[derive(Debug, Clone)]
+pub enum TopicMessage {
+    Content(ClientID, PublishMessage),
+    Will(PublishMessage),
+}
+
+pub struct Subscript {
+    container: Arc<Mutex<HashMap<String, Topic>>>,
+}
+
+impl Subscript {
+    pub fn new() -> Subscript {
+        Subscript { container: Arc::new(Mutex::new(HashMap::default())) }
     }
 
-    pub fn start(&self) {
-        if self.run_time.is_none() { return; }
-        self.run_time.as_ref().unwrap().block_on(async move {
-            let listener = TcpListener::bind(format!("{}:{}", self.host, self.port)).await.expect("listener error");
+    pub async fn contain<S: AsRef<str>>(&self, topic_name: S) -> bool {
+        self.container.lock().await.contains_key(topic_name.as_ref())
+    }
 
-            loop {
-                let (mut socket, _) = listener.accept().await.expect("listener accept error");
+    pub async fn len(&self) -> usize {
+        self.container.lock().await.len()
+    }
 
-                tokio::spawn(async move {
-                    let mut buf = [0; 1024];
-                    let mut line = Line::new();
-                    // In a loop, read data from the socket and write the data back.
-                    'end_loop: loop {
-                        let res = tokio::select! {
-                            Ok(n) = socket.read(&mut buf) => {
-                                if n != 0 {
-                                    // println!("length: {}",n);
-                                    line.get_sender().send(LineMessage::SocketMessage(buf[0..n].to_vec())).await;
-                                }
-                                None
-                            },
-                            kind = line.recv() => kind,
-                        };
-                        if let Some(kind) = res {
-                            match kind {
-                                MqttMessageKind::Response(data) => {
-                                    if let Err(e) = socket.write_all(data.as_slice()).await {
-                                        println!("failed to write to socket; err = {:?}", e);
-                                    }
-                                }
-                                MqttMessageKind::Exit(data)=>{
-                                    if let Err(e) = socket.write_all(data.as_slice()).await {
-                                        println!("failed to write to socket; err = {:?}", e);
-                                    }
-                                    break 'end_loop;
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
-                });
+    pub async fn add<S: Into<String>>(&self, topic_name: S, topic: Topic) -> Option<Topic> {
+        self.container.lock().await.insert(topic_name.into(), topic)
+    }
+
+    pub async fn remove<S: AsRef<str>>(&self, topic_name: S) -> Option<Topic> {
+        self.container.lock().await.remove(topic_name.as_ref())
+    }
+
+    pub async fn is_subscript<S: AsRef<str>, SS: AsRef<ClientID>>(&self, topic_name: S, client_id: SS) -> bool {
+        self.container.lock().await.get(topic_name.as_ref()).unwrap().contain(client_id)
+    }
+
+    pub async fn new_subscript<S: AsRef<str>, SS: AsRef<ClientID>>(&self, topic_name: S, client_id: SS, sender: Sender<LineMessage>) {
+        let mut top = Topic::new(topic_name.as_ref());
+        top.subscript(client_id.as_ref(), sender);
+        self.add(topic_name.as_ref(), top).await;
+    }
+
+    pub fn subscript<S: AsRef<str>, SS: AsRef<ClientID>>(&self, topic_name: S, client_id: SS, sender: Sender<LineMessage>) {
+        match self.container.try_lock() {
+            Ok(mut container) => {
+                if let Some(t) = container.get_mut(topic_name.as_ref()) {
+                    t.subscript(client_id.as_ref(), sender);
+                }
             }
-        })
+            Err(e) => {
+                println!("{:?}", e)
+            }
+        }
+    }
+
+    pub async fn unsubscript<S: AsRef<str>, SS: AsRef<ClientID>>(&self, topic_name: S, client_id: SS) {
+        self.container.lock().await.get_mut(topic_name.as_ref()).unwrap().unsubscript(client_id);
+    }
+
+    pub async fn exit<S: AsRef<ClientID>>(&self, client_id: S) {
+        for (_, topic) in self.container.lock().await.iter_mut() {
+            topic.unsubscript(client_id.as_ref());
+        }
+    }
+
+    pub async fn topics(&self) -> Vec<String> {
+        self.container.lock().await.keys().cloned().collect::<Vec<String>>()
+    }
+
+    pub async fn clients<S: AsRef<str>>(&self, topic_name: S) -> Vec<ClientID> {
+        self.container.lock().await.get(topic_name.as_ref()).unwrap().client_id_list()
+    }
+
+    pub async fn client_len<S: AsRef<str>>(&self, topic_name: S) -> usize {
+        self.container.lock().await.get(topic_name.as_ref()).unwrap().client_len()
+    }
+
+    pub async fn broadcast<S: AsRef<str>>(&self, topic_name: S, msg: &TopicMessage) {
+        if let Some(t) = self.container.lock().await.get(topic_name.as_ref()) {
+            t.broadcast(msg).await
+        }
+    }
+
+    pub async fn get_client<S: AsRef<str>, SS: AsRef<ClientID>>(&self, topic_name: S, client_id: SS) -> Sender<LineMessage> {
+        self.container.lock().await.get(topic_name.as_ref()).unwrap().senders.get(client_id.as_ref()).unwrap().clone()
+    }
+}
+
+#[derive(Debug)]
+pub struct Topic {
+    name: String,
+    senders: HashMap<ClientID, Sender<LineMessage>>,
+}
+
+impl Topic {
+    pub fn new<S: Into<String>>(name: S) -> Topic {
+        Topic { name: name.into(), senders: HashMap::new() }
+    }
+}
+
+impl Topic {
+    pub fn subscript<S: Into<ClientID>>(&mut self, client_id: S, sender: Sender<LineMessage>) {
+        let id = client_id.into();
+        println!("subscript client id: {:?}", &id);
+        self.senders.insert(id, sender);
+    }
+
+    pub fn unsubscript<S: AsRef<ClientID>>(&mut self, client_id: S) -> Option<Sender<LineMessage>> {
+        if self.senders.contains_key(client_id.as_ref()) {
+            return self.senders.remove(client_id.as_ref());
+        }
+        None
+    }
+
+    pub fn client_id_list(&self) -> Vec<ClientID> {
+        self.senders.keys().cloned().collect::<Vec<ClientID>>()
+    }
+
+    pub fn client_len(&self) -> usize {
+        self.senders.len()
+    }
+
+    pub async fn broadcast(&self, msg: &TopicMessage) {
+        for (_, sender) in self.senders.iter() {
+            sender.send(LineMessage::SubscriptionMessage(msg.clone())).await;
+        }
+    }
+
+    pub fn contain<S: AsRef<ClientID>>(&self, client_id: S) -> bool {
+        self.senders.contains_key(client_id.as_ref())
     }
 }
 
@@ -120,7 +227,27 @@ impl Line {
         self.protocol_level = Some(protocol_level);
     }
 
-    pub fn init(&mut self, connect_msg: &ConnectMessage) {
+    pub fn is_will_flag(&self) -> bool {
+        self.will_flag.unwrap() == MqttWillFlag::Enable
+    }
+
+    pub fn get_v3_topic_message(&self) -> TopicMessage {
+        let msg = PublishMessage::new(
+            self.will_qos.unwrap(),
+            MqttDup::Disable,
+            self.will_retain.unwrap(),
+            self.will_topic.as_ref().unwrap().to_owned(),
+            0,
+            self.will_message.as_ref().unwrap().to_owned(),
+        );
+        TopicMessage::Content(self.get_client_id().clone(), msg)
+    }
+
+    pub fn get_will_topic(&self) -> &String {
+        self.will_topic.as_ref().unwrap()
+    }
+
+    pub fn init_v3(&mut self, connect_msg: &ConnectMessage) {
         self.client_id = Some(ClientID(connect_msg.payload.client_id.to_owned()));
         self.will_flag = Some(connect_msg.will_flag);
         self.will_qos = Some(connect_msg.will_qos);
@@ -156,14 +283,14 @@ impl Line {
                                                     Some(MqttMessageKind::Exit(res_msg.as_bytes().to_vec()))
                                                 } else {
                                                     Some(MqttMessageKind::Response(res_msg.as_bytes().to_vec()))
-                                                }
+                                                };
                                             }
                                         }
                                     }
                                     None
                                 }
                                 MqttProtocolLevel::Level5 => {
-                                    let msg = crate::packet::v5::Unpcak::connect(base_msg);
+                                    let msg = crate::packet::v5_unpacket::connect(base_msg);
                                     println!("{:?}", msg);
                                     None
                                 }
@@ -197,7 +324,7 @@ async fn handle_v3(line: &mut Line, kind_opt: Option<&MqttMessageV3>) -> Option<
     if let Some(kind) = kind_opt {
         match kind {
             MqttMessageV3::Connect(msg) => {
-                line.init(msg);
+                line.init_v3(msg);
                 return Some(MqttMessageV3::Connack(ConnackMessage::default()));
             }
             // MqttMessageV3::Puback(msg) => {
@@ -205,9 +332,9 @@ async fn handle_v3(line: &mut Line, kind_opt: Option<&MqttMessageV3>) -> Option<
             MqttMessageV3::Subscribe(msg) => {
                 println!("{:?}", msg);
                 if SUBSCRIPT.contain(&msg.topic).await {
-                    SUBSCRIPT.subscript(&msg.topic, line.client_id.as_ref().unwrap(), line.get_sender());
+                    SUBSCRIPT.subscript(&msg.topic, line.get_client_id(), line.get_sender());
                 } else {
-                    SUBSCRIPT.new_subscript(&msg.topic, line.client_id.as_ref().unwrap(), line.get_sender()).await;
+                    SUBSCRIPT.new_subscript(&msg.topic, line.get_client_id(), line.get_sender()).await;
                 }
                 println!("broadcast topic len: {}", SUBSCRIPT.len().await);
                 println!("broadcast topic list: {:?}", SUBSCRIPT.topics().await);
@@ -220,8 +347,8 @@ async fn handle_v3(line: &mut Line, kind_opt: Option<&MqttMessageV3>) -> Option<
             MqttMessageV3::Unsubscribe(msg) => {
                 println!("topic name: {}", &msg.topic);
                 if SUBSCRIPT.contain(&msg.topic).await {
-                    if SUBSCRIPT.is_subscript(&msg.topic, line.client_id.as_ref().unwrap().as_ref()).await {
-                        SUBSCRIPT.unsubscript(&msg.topic, line.client_id.as_ref().unwrap().as_ref()).await;
+                    if SUBSCRIPT.is_subscript(&msg.topic, line.get_client_id()).await {
+                        SUBSCRIPT.unsubscript(&msg.topic, line.get_client_id()).await;
                         return Some(MqttMessageV3::Unsuback(UnsubackMessage::new(msg.message_id)));
                     }
                 }
@@ -229,7 +356,7 @@ async fn handle_v3(line: &mut Line, kind_opt: Option<&MqttMessageV3>) -> Option<
             }
             MqttMessageV3::Publish(msg) => {
                 // println!("{:?}", msg);
-                let topic_msg = TopicMessage::Content(line.client_id.as_ref().unwrap().to_owned(), msg.clone());
+                let topic_msg = TopicMessage::Content(line.get_client_id().to_owned(), msg.clone());
                 println!("topic: {:?}", topic_msg);
                 SUBSCRIPT.broadcast(&msg.topic, &topic_msg).await;
                 if msg.qos == MqttQos::Qos1 {
@@ -242,19 +369,11 @@ async fn handle_v3(line: &mut Line, kind_opt: Option<&MqttMessageV3>) -> Option<
             }
             MqttMessageV3::Disconnect(_) => {
                 println!("client disconnect");
-                if line.will_flag.unwrap() == MqttWillFlag::Enable {
-                    let msg = PublishMessage::new(
-                        line.will_qos.unwrap(),
-                        MqttDup::Disable,
-                        line.will_retain.unwrap(),
-                        line.will_topic.as_ref().unwrap().to_owned(),
-                        0,
-                        line.will_message.as_ref().unwrap().to_owned(),
-                    );
-                    let topic_msg = TopicMessage::Content(line.client_id.as_ref().unwrap().clone(), msg);
-                    SUBSCRIPT.broadcast(line.will_topic.as_ref().unwrap(), &topic_msg).await;
+                if line.is_will_flag() {
+                    let topic_msg = line.get_v3_topic_message();
+                    SUBSCRIPT.broadcast(line.get_will_topic(), &topic_msg).await;
                 }
-                SUBSCRIPT.exit(line.client_id.as_ref().unwrap()).await;
+                SUBSCRIPT.exit(line.get_client_id()).await;
                 return Some(MqttMessageV3::Disconnect(DisconnectMessage::default()));
             }
             _ => { return None; }
@@ -262,5 +381,4 @@ async fn handle_v3(line: &mut Line, kind_opt: Option<&MqttMessageV3>) -> Option<
     }
     None
 }
-
 

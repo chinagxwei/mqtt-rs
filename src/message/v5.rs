@@ -1,8 +1,9 @@
 use crate::types::TypeKind;
 use crate::protocol::{MqttProtocolLevel, MqttCleanSession, MqttWillFlag, MqttQos, MqttRetain, MqttSessionPresent, MqttDup, MqttRetainAsPublished, MqttNoLocal};
-use crate::hex::PropertyItem;
+use crate::hex::{PropertyItem, Property, PropertyValue};
 use crate::message::{ConnectMessagePayload, BaseMessage, MqttMessage, MqttBytesMessage};
 use crate::packet::{v5_packet, v5_unpacket};
+use crate::hex::reason_code::{ReasonPhrases, ReasonCodeV5};
 
 pub enum MqttMessageV5 {
     Connect(ConnectMessage),
@@ -65,6 +66,33 @@ impl MqttBytesMessage for ConnackMessage {
 impl From<BaseMessage> for ConnackMessage {
     fn from(base: BaseMessage) -> Self {
         v5_unpacket::connack(base)
+    }
+}
+
+impl Default for ConnackMessage {
+    fn default() -> Self {
+        let properties = Some(
+            vec![
+                PropertyItem(Property::MaximumPacketSize, PropertyValue::Long(1048576)),
+                PropertyItem(Property::RetainAvailable, PropertyValue::Byte(1)),
+                PropertyItem(Property::SharedSubscriptionAvailable, PropertyValue::Byte(1)),
+                PropertyItem(Property::SubscriptionIdentifierAvailable, PropertyValue::Byte(1)),
+                PropertyItem(Property::TopicAliasMaximum, PropertyValue::Short(65535)),
+                PropertyItem(Property::WildcardSubscriptionAvailable, PropertyValue::Byte(1)),
+            ]
+        );
+        let bytes = v5_packet::connack(
+            MqttSessionPresent::Disable,
+            ReasonCodeV5::ReasonPhrases(ReasonPhrases::Success),
+            properties.as_ref(),
+        );
+        ConnackMessage {
+            msg_type: TypeKind::CONNACK,
+            session_present: MqttSessionPresent::Disable,
+            return_code: ReasonPhrases::Success.as_byte(),
+            properties,
+            bytes,
+        }
     }
 }
 
@@ -256,7 +284,7 @@ impl MqttBytesMessage for AuthMessage {
     }
 }
 
-pub struct CommonPayload{
+pub struct CommonPayload {
     pub msg_type: TypeKind,
     pub code: u8,
     pub properties: Option<Vec<PropertyItem>>,

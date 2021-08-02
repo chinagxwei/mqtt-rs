@@ -7,7 +7,7 @@ use crate::tools::pack_tool::{pack_header};
 use crate::config::Config;
 use crate::hex::reason_code::ReasonCodes::V3;
 use crate::packet::{v3_packet, v3_unpacket};
-use crate::message::{MqttBytesMessage, MqttMessage, BaseMessage, ConnectMessagePayload};
+use crate::message::{MqttBytesMessage, MqttMessage, BaseMessage, ConnectMessagePayload, PingreqMessage, PingrespMessage};
 
 #[derive(Debug, Clone)]
 pub enum MqttMessageV3 {
@@ -638,71 +638,5 @@ impl Default for DisconnectMessage {
 impl From<BaseMessage> for DisconnectMessage {
     fn from(mut base: BaseMessage) -> Self {
         DisconnectMessage { msg_type: base.msg_type, bytes: base.bytes }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct PingreqMessage {
-    msg_type: TypeKind,
-    bytes: Vec<u8>,
-}
-
-impl MqttMessage for PingreqMessage {
-    fn get_message_type(&self) -> TypeKind {
-        self.msg_type
-    }
-}
-
-impl From<BaseMessage> for PingreqMessage {
-    fn from(mut base: BaseMessage) -> Self {
-        PingreqMessage { msg_type: base.msg_type, bytes: base.bytes }
-    }
-}
-
-impl MqttBytesMessage for PingreqMessage {
-    fn as_bytes(&self) -> &[u8] {
-        &self.bytes.as_slice()
-    }
-}
-
-impl Default for PingreqMessage {
-    fn default() -> Self {
-        PingreqMessage {
-            msg_type: TypeKind::PINGREQ,
-            bytes: pack_header(TypeKind::PINGREQ, 0),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct PingrespMessage {
-    msg_type: TypeKind,
-    bytes: Vec<u8>,
-}
-
-impl MqttMessage for PingrespMessage {
-    fn get_message_type(&self) -> TypeKind {
-        self.msg_type
-    }
-}
-
-impl From<BaseMessage> for PingrespMessage {
-    fn from(mut base: BaseMessage) -> Self {
-        PingrespMessage { msg_type: base.msg_type, bytes: base.bytes }
-    }
-}
-
-impl MqttBytesMessage for PingrespMessage {
-    fn as_bytes(&self) -> &[u8] {
-        &self.bytes.as_slice()
-    }
-}
-
-impl Default for PingrespMessage {
-    fn default() -> Self {
-        PingrespMessage {
-            msg_type: TypeKind::PINGRESP,
-            bytes: pack_header(TypeKind::PINGRESP, 0),
-        }
     }
 }

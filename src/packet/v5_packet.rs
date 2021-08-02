@@ -1,7 +1,9 @@
 use crate::message::v5::ConnectMessage;
 use crate::tools::pack_tool::{pack_protocol_name, pack_connect_flags, pack_string, pack_short_int, pack_client_id, pack_header};
-use crate::protocol::MqttWillFlag;
-use crate::hex::pack_property;
+use crate::protocol::{MqttWillFlag, MqttSessionPresent};
+use crate::hex::{pack_property, PropertyItem};
+use crate::types::TypeKind;
+use crate::hex::reason_code::ReasonCodeV5;
 
 pub fn connect(msg: &ConnectMessage) -> Vec<u8> {
     let mut body: Vec<u8> = pack_string(&msg.protocol_name);
@@ -52,6 +54,20 @@ pub fn connect(msg: &ConnectMessage) -> Vec<u8> {
     }
 
     let mut package = pack_header(msg.msg_type, body.len());
+
+    package.extend(body);
+
+    package
+}
+
+pub fn connack(session_present: MqttSessionPresent, return_code: ReasonCodeV5,properties:Option<&Vec<PropertyItem>>) -> Vec<u8> {
+    let mut body = vec![session_present as u8, return_code.as_byte()];
+
+    if properties.is_some(){
+        body.extend(pack_property::connack(properties.unwrap()));
+    }
+
+    let mut package = pack_header(TypeKind::CONNACK, body.len());
 
     package.extend(body);
 

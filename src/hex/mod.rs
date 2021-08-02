@@ -18,7 +18,7 @@ pub enum PropertyValue {
 }
 
 #[derive(Debug, Clone)]
-pub struct PropertyItem(Property, PropertyValue);
+pub struct PropertyItem(pub Property, pub PropertyValue);
 
 impl PropertyItem {
     pub fn as_long(&self) -> Option<u32> {

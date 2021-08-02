@@ -2,12 +2,12 @@ use crate::types::TypeKind;
 use crate::tools::un_pack_tool::{get_type, get_protocol_name_and_version};
 use crate::message::v3::{
     ConnackMessage, ConnectMessage, DisconnectMessage, MqttMessageV3,
-    PingrespMessage, PubackMessage, PubcompMessage, PublishMessage, PubrecMessage, PubrelMessage,
-    SubackMessage, SubscribeMessage, UnsubackMessage, UnsubscribeMessage, PingreqMessage,
+    PubackMessage, PubcompMessage, PublishMessage, PubrecMessage, PubrelMessage,
+    SubackMessage, SubscribeMessage, UnsubackMessage, UnsubscribeMessage,
 };
 use crate::protocol::{MqttProtocolLevel, MqttDup, MqttQos, MqttRetain};
-use crate::TopicMessage;
 use crate::hex::PropertyItem;
+use crate::tools::pack_tool::pack_header;
 
 pub mod v3;
 pub mod v5;
@@ -139,4 +139,71 @@ pub struct ConnectMessagePayload {
     pub user_name: Option<String>,
     pub password: Option<String>,
     pub properties: Option<Vec<PropertyItem>>,
+}
+
+
+#[derive(Debug, Clone)]
+pub struct PingreqMessage {
+    msg_type: TypeKind,
+    bytes: Vec<u8>,
+}
+
+impl MqttMessage for PingreqMessage {
+    fn get_message_type(&self) -> TypeKind {
+        self.msg_type
+    }
+}
+
+impl From<BaseMessage> for PingreqMessage {
+    fn from(mut base: BaseMessage) -> Self {
+        PingreqMessage { msg_type: base.msg_type, bytes: base.bytes }
+    }
+}
+
+impl MqttBytesMessage for PingreqMessage {
+    fn as_bytes(&self) -> &[u8] {
+        &self.bytes.as_slice()
+    }
+}
+
+impl Default for PingreqMessage {
+    fn default() -> Self {
+        PingreqMessage {
+            msg_type: TypeKind::PINGREQ,
+            bytes: pack_header(TypeKind::PINGREQ, 0),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct PingrespMessage {
+    msg_type: TypeKind,
+    bytes: Vec<u8>,
+}
+
+impl MqttMessage for PingrespMessage {
+    fn get_message_type(&self) -> TypeKind {
+        self.msg_type
+    }
+}
+
+impl From<BaseMessage> for PingrespMessage {
+    fn from(mut base: BaseMessage) -> Self {
+        PingrespMessage { msg_type: base.msg_type, bytes: base.bytes }
+    }
+}
+
+impl MqttBytesMessage for PingrespMessage {
+    fn as_bytes(&self) -> &[u8] {
+        &self.bytes.as_slice()
+    }
+}
+
+impl Default for PingrespMessage {
+    fn default() -> Self {
+        PingrespMessage {
+            msg_type: TypeKind::PINGRESP,
+            bytes: pack_header(TypeKind::PINGRESP, 0),
+        }
+    }
 }
