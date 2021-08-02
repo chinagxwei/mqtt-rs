@@ -130,11 +130,11 @@ pub fn parse_byte(data: &[u8]) -> (u8, &[u8]) {
 /// 解析报文 short int 数据
 ///
 pub fn parse_short_int(data: &[u8]) -> (u16, &[u8]) {
-    println!("parse_short_int: {:?}", data.get(..2).unwrap());
+    // println!("parse_short_int: {:?}", data.get(..2).unwrap());
     let bytes = data.get(..2).unwrap();
     let short_int_bytes = bytes.iter().rev().cloned().collect::<Vec<u8>>();
     let short_int = u16::from_le_bytes(short_int_bytes.try_into().unwrap());
-    println!("short int: {}", short_int);
+    // println!("short int: {}", short_int);
     (short_int, data.get(2..).unwrap())
 }
 
@@ -142,11 +142,11 @@ pub fn parse_short_int(data: &[u8]) -> (u16, &[u8]) {
 /// 解析报文 long int 数据
 ///
 pub fn parse_long_int(data: &[u8]) -> (u32, &[u8]) {
-    println!("parse_long_int: {:?}", data.get(..4).unwrap());
+    // println!("parse_long_int: {:?}", data.get(..4).unwrap());
     let bytes = data.get(..4).unwrap();
     let long_int_bytes = bytes.iter().rev().cloned().collect::<Vec<u8>>();
     let long_int = u32::from_le_bytes(long_int_bytes.try_into().unwrap());
-    println!("long int: {}", long_int);
+    // println!("long int: {}", long_int);
     (long_int, data.get(4..).unwrap())
 }
 
@@ -169,20 +169,20 @@ pub fn parse_string(data: &[u8]) -> Result<(String, Option<&[u8]>), &str> {
 ///
 ///
 pub fn get_remaining_length(data: &[u8]) -> Result<(usize, usize), &'static str> {
-    let (ref mut head_index, mut digit, mut multiplier, mut value) = (1_usize, 0, 1, 0);
+    let (mut head_index, mut digit, mut multiplier, mut value) = (1_usize, 0, 1, 0);
 
     loop {
-        digit = data[*head_index] & 127;
+        digit = data[head_index] & 127;
         value += digit as usize * multiplier;
         multiplier *= 128;
         if multiplier > 128 * 128 * 128 {
             return Err("Malformed Variable Byte Integer");
         }
-        *head_index += 1;
+        head_index += 1;
         if (digit & 128) == 0 { break; }
     }
 
-    Ok((value, *head_index))
+    Ok((value, head_index))
 }
 
 ///

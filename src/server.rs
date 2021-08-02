@@ -285,8 +285,19 @@ impl Line {
                                                     Some(MqttMessageKind::Response(res_msg.as_bytes().to_vec()))
                                                 };
                                             }
+                                        } else if v3.is_v3s() {
+                                            if let Some(items) = v3.get_v3s() {
+                                                let mut res = vec![];
+                                                for x in items {
+                                                    if let Some(res_msg) = handle_v3(self, Some(x)).await {
+                                                        res.push(res_msg.as_bytes().to_vec());
+                                                    }
+                                                }
+                                                return Some(MqttMessageKind::Responses(res));
+                                            }
                                         }
                                     }
+
                                     None
                                 }
                                 MqttProtocolLevel::Level5 => {
@@ -331,15 +342,16 @@ async fn handle_v3(line: &mut Line, kind_opt: Option<&MqttMessageV3>) -> Option<
             // }
             MqttMessageV3::Subscribe(msg) => {
                 println!("{:?}", msg);
-                if SUBSCRIPT.contain(&msg.topic).await {
-                    SUBSCRIPT.subscript(&msg.topic, line.get_client_id(), line.get_sender());
+                let topic = &msg.topic;
+                if SUBSCRIPT.contain(topic).await {
+                    SUBSCRIPT.subscript(topic, line.get_client_id(), line.get_sender());
                 } else {
-                    SUBSCRIPT.new_subscript(&msg.topic, line.get_client_id(), line.get_sender()).await;
+                    SUBSCRIPT.new_subscript(topic, line.get_client_id(), line.get_sender()).await;
                 }
                 println!("broadcast topic len: {}", SUBSCRIPT.len().await);
                 println!("broadcast topic list: {:?}", SUBSCRIPT.topics().await);
-                println!("broadcast client len: {:?}", SUBSCRIPT.client_len(&msg.topic).await);
-                println!("broadcast client list: {:?}", SUBSCRIPT.clients(&msg.topic).await);
+                println!("broadcast client len: {:?}", SUBSCRIPT.client_len(topic).await);
+                println!("broadcast client list: {:?}", SUBSCRIPT.clients(topic).await);
                 let sm = SubackMessage::from(msg.clone());
                 println!("{:?}", sm);
                 return Some(MqttMessageV3::Suback(sm));

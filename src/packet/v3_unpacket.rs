@@ -4,7 +4,7 @@ use crate::hex::reason_code::{ReasonCodes, ReasonCodeV3};
 use crate::types::TypeKind;
 use crate::message::v3::{ConnectMessage, PublishMessage, SubscribeMessage, SubackMessage, UnsubscribeMessage, ConnackMessage, UnsubackMessage, PubackMessage, PubrecMessage, PubrelMessage, PubcompMessage};
 use crate::message::{BaseMessage, ConnectMessagePayload};
-use crate::tools::un_pack_tool::{get_connect_variable_header, get_connect_payload_data, parse_short_int, parse_string};
+use crate::tools::un_pack_tool::{get_connect_variable_header, get_connect_payload_data, parse_short_int, parse_string, parse_byte, get_remaining_data};
 use std::convert::TryFrom;
 
 pub fn connect(mut base: BaseMessage) -> ConnectMessage {
@@ -75,18 +75,30 @@ pub fn publish(mut base: BaseMessage) -> PublishMessage {
     }
 }
 
-pub fn subscribe(mut base: BaseMessage) -> SubscribeMessage {
-    let message_bytes = base.bytes.get(2..).unwrap();
-    let (message_id, last_data) = parse_short_int(message_bytes);
-    let (topic, last_data) = parse_string(last_data).unwrap();
-    let qos = if last_data.unwrap().len() == 1 { last_data.unwrap()[0] } else { 0 };
-    SubscribeMessage {
-        msg_type: base.msg_type,
-        message_id,
-        topic,
-        qos: MqttQos::try_from(qos).unwrap(),
-        bytes: Some(base.bytes),
+pub fn subscribe(mut base: BaseMessage) -> Vec<SubscribeMessage> {
+    let mut subs = vec![];
+    let mut last = base.bytes.as_slice();
+    loop {
+        let remain_data = get_remaining_data(last);
+        let (message_id, last_data) = parse_short_int(remain_data);
+        let (topic, last_data) = parse_string(last_data).unwrap();
+        let (qos, _) = parse_byte(last_data.unwrap());
+        subs.push(
+            SubscribeMessage {
+                msg_type: base.msg_type,
+                message_id,
+                topic,
+                qos: MqttQos::try_from(qos).unwrap(),
+                bytes: Some(last.get(..remain_data.len() + 2).unwrap().to_vec()),
+            }
+        );
+        if let Some(l) = last.get(remain_data.len() + 2..) {
+            if l.len() > 0 { last = l; } else { break; }
+        } else {
+            break;
+        }
     }
+    subs
 }
 
 pub fn unsubscribe(mut base: BaseMessage) -> UnsubscribeMessage {
