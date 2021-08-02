@@ -8,6 +8,7 @@ use crate::message::v3::{
 use crate::protocol::{MqttProtocolLevel, MqttDup, MqttQos, MqttRetain};
 use crate::hex::PropertyItem;
 use crate::tools::pack_tool::pack_header;
+use crate::packet::v3_unpacket;
 
 pub mod v3;
 pub mod v5;
@@ -15,7 +16,9 @@ pub mod v5;
 #[derive(Debug)]
 pub enum MqttMessageKind {
     Response(Vec<u8>),
+    Responses(Vec<Vec<u8>>),
     RequestV3(MqttMessageV3),
+    RequestsV3(Vec<MqttMessageV3>),
     RequestV5,
     Exit(Vec<u8>),
 }
@@ -25,9 +28,22 @@ impl MqttMessageKind {
         matches!(self, MqttMessageKind::RequestV3(_))
     }
 
+    pub fn is_v3s(&self) -> bool {
+        matches!(self, MqttMessageKind::RequestsV3(_))
+    }
+
     pub fn get_v3(&self) -> Option<&MqttMessageV3> {
         match self {
             MqttMessageKind::RequestV3(kind) => {
+                Some(kind)
+            }
+            _ => { None }
+        }
+    }
+
+    pub fn get_v3s(&self) -> Option<&Vec<MqttMessageV3>> {
+        match self {
+            MqttMessageKind::RequestsV3(kind) => {
                 Some(kind)
             }
             _ => { None }
@@ -45,7 +61,13 @@ impl MqttMessageKind {
             TypeKind::PUBREC => { Some(Self::RequestV3(MqttMessageV3::Pubrec(PubrecMessage::from(base_msg)))) }
             TypeKind::PUBREL => { Some(Self::RequestV3(MqttMessageV3::Pubrel(PubrelMessage::from(base_msg)))) }
             TypeKind::PUBCOMP => { Some(Self::RequestV3(MqttMessageV3::Pubcomp(PubcompMessage::from(base_msg)))) }
-            TypeKind::SUBSCRIBE => { Some(Self::RequestV3(MqttMessageV3::Subscribe(SubscribeMessage::from(base_msg)))) }
+            TypeKind::SUBSCRIBE => {
+                let mut subs = v3_unpacket::subscribe(base_msg);
+                let res = subs.into_iter()
+                    .map(|x| MqttMessageV3::Subscribe(x))
+                    .collect::<Vec<MqttMessageV3>>();
+                Some(Self::RequestsV3(res))
+            }
             // TypeKind::SUBACK => { Some(Self::RequestV3(MqttMessageV3::Suback(SubackMessage::from(base_msg)))) }
             TypeKind::UNSUBSCRIBE => { Some(Self::RequestV3(MqttMessageV3::Unsubscribe(UnsubscribeMessage::from(base_msg)))) }
             TypeKind::UNSUBACK => { Some(Self::RequestV3(MqttMessageV3::Unsuback(UnsubackMessage::from(base_msg)))) }

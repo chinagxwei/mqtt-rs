@@ -244,12 +244,6 @@ impl MqttBytesMessage for SubscribeMessage {
     }
 }
 
-impl From<BaseMessage> for SubscribeMessage {
-    fn from(base: BaseMessage) -> Self {
-        v3_unpacket::subscribe(base)
-    }
-}
-
 impl SubscribeMessage {
     pub fn new(message_id: u16, topic: String, qos: MqttQos) -> Self {
         let mut msg = SubscribeMessage {
