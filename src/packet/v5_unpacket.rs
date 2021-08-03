@@ -179,7 +179,7 @@ pub fn unsubscribe(mut base: BaseMessage) -> Vec<UnsubscribeMessage> {
             )
         };
 
-        let (topic, last_data) = parse_string(last_data).unwrap();
+        let (topic, _) = parse_string(last_data).unwrap();
 
         subs.push(UnsubscribeMessage {
             msg_type: base.msg_type,
