@@ -1,4 +1,4 @@
-use crate::message::v5::{ConnectMessage, SubackMessage};
+use crate::message::v5::{ConnectMessage, SubackMessage, UnsubackMessage};
 use crate::tools::pack_tool::{pack_protocol_name, pack_connect_flags, pack_string, pack_short_int, pack_client_id, pack_header, pack_message_short_id};
 use crate::protocol::{MqttWillFlag, MqttSessionPresent};
 use crate::hex::{pack_property, PropertyItem};
@@ -74,7 +74,7 @@ pub fn connack(session_present: MqttSessionPresent, return_code: ReasonCodeV5, p
     package
 }
 
-pub fn suback(msg:&SubackMessage) -> Vec<u8> {
+pub fn suback(msg: &SubackMessage) -> Vec<u8> {
     let mut body = pack_message_short_id(msg.message_id);
 
     if msg.properties.is_some() {
@@ -84,6 +84,22 @@ pub fn suback(msg:&SubackMessage) -> Vec<u8> {
     body.extend(msg.codes.clone());
 
     let mut package = pack_header(TypeKind::SUBACK, body.len());
+
+    package.extend(body);
+
+    package
+}
+
+pub fn unsuback(msg: &UnsubackMessage) -> Vec<u8> {
+    let mut body = pack_message_short_id(msg.message_id);
+
+    if msg.properties.is_some() {
+        body.extend(pack_property::suback(msg.properties.as_ref().unwrap()));
+    }
+
+    body.extend(msg.codes.clone());
+
+    let mut package = pack_header(TypeKind::UNSUBACK, body.len());
 
     package.extend(body);
 

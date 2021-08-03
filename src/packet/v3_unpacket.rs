@@ -101,16 +101,29 @@ pub fn subscribe(mut base: BaseMessage) -> Vec<SubscribeMessage> {
     subs
 }
 
-pub fn unsubscribe(mut base: BaseMessage) -> UnsubscribeMessage {
-    let message_bytes = base.bytes.get(2..).unwrap();
-    let (message_id, last_data) = parse_short_int(message_bytes);
-    let (topic, _) = parse_string(last_data).unwrap();
-    UnsubscribeMessage {
-        msg_type: base.msg_type,
-        message_id,
-        topic,
-        bytes: Some(base.bytes),
+pub fn unsubscribe(mut base: BaseMessage) -> Vec<UnsubscribeMessage> {
+    let mut subs = vec![];
+    let mut data_bytes = base.bytes.as_slice();
+
+    loop {
+        let remain_data = get_remaining_data(data_bytes);
+        let (message_id, last_data) = parse_short_int(remain_data);
+        let (topic, last_data) = parse_string(last_data).unwrap();
+        subs.push(
+            UnsubscribeMessage {
+                msg_type: base.msg_type,
+                message_id,
+                topic,
+                bytes: Some(data_bytes.get(..remain_data.len() + 2).unwrap().to_vec()),
+            }
+        );
+        if let Some(last_data) = data_bytes.get(remain_data.len() + 2..) {
+            if last_data.len() > 0 { data_bytes = last_data; } else { break; }
+        } else {
+            break;
+        }
     }
+    subs
 }
 
 pub fn unsuback(mut base: BaseMessage) -> UnsubackMessage {

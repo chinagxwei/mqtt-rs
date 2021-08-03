@@ -158,64 +158,46 @@ pub fn subscribe(mut base: BaseMessage) -> Vec<SubscribeMessage> {
     subs
 }
 
-pub fn unsubscribe(mut base: BaseMessage) {
-    let message_bytes = base.bytes.get(2..).unwrap();
+pub fn unsubscribe(mut base: BaseMessage) -> Vec<UnsubscribeMessage> {
+    let mut subs = vec![];
+    let mut data_bytes = base.bytes.as_slice();
 
-    let (message_id, last_data) = parse_short_int(message_bytes);
+    loop {
+        let remain_data = get_remaining_data(data_bytes);
+        let (message_id, last_data) = parse_short_int(remain_data);
 
-    let (properties_total_length, last_data) = parse_byte(last_data);
+        let (properties_total_length, last_data) = parse_byte(last_data);
+        let (properties, last_data) = if properties_total_length > 0 {
+            (
+                Some(un_pack_property::unsubscribe(properties_total_length as u32, last_data)),
+                last_data.get(properties_total_length as usize..).unwrap()
+            )
+        } else {
+            (
+                None,
+                last_data
+            )
+        };
 
-    let (properties, last_data) = if properties_total_length > 0 {
-        (
-            Some(un_pack_property::unsubscribe(properties_total_length as u32, last_data)),
-            last_data.get(properties_total_length as usize..).unwrap()
-        )
-    } else {
-        (
-            None,
-            last_data
-        )
-    };
+        let (topic, last_data) = parse_string(last_data).unwrap();
 
-    let (topic, _) = parse_string(last_data).unwrap();
+        subs.push(UnsubscribeMessage {
+            msg_type: base.msg_type,
+            message_id,
+            topic,
+            properties,
+            bytes: Some(data_bytes.get(..remain_data.len() + 2).unwrap().to_vec()),
+        });
 
-    // let message_bytes = base.bytes.get(2..).unwrap();
-    //
-    // let (message_id, last_data) = parse_short_int(message_bytes);
-    //
-    // let (properties_total_length, last_data) = parse_byte(last_data);
-    //
-    // let properties = if properties_total_length > 0 {
-    //     Some(un_pack_property::unsubscribe(properties_total_length as u32, last_data))
-    // } else {
-    //     None
-    // };
-    //
-    // let mut last_data = last_data.get(properties_total_length as usize..).unwrap();
-    //
-    // let mut topics = vec![];
-    //
-    // loop {
-    //     let (topic, last) = parse_string(last_data).unwrap();
-    //     topics.push(SubscribeTopic {
-    //         topic,
-    //         qos: None,
-    //         no_local: None,
-    //         retain_as_published: None,
-    //         retain_handling: None,
-    //     });
-    //     if last.unwrap().len() <= 1 {
-    //         break;
-    //     }
-    // }
-    //
-    // UnsubscribeMessage {
-    //     msg_type: base.msg_type,
-    //     message_id,
-    //     topics,
-    //     properties,
-    //     bytes: Some(base.bytes),
-    // };
+        if let Some(last_data) = data_bytes.get(remain_data.len() + 2..) {
+            if last_data.len() > 0 { data_bytes = last_data; } else { break; }
+        } else {
+            break;
+        }
+    }
+
+    println!("{:?}", subs);
+    subs
 }
 
 pub fn suback(mut base: BaseMessage) -> SubackMessage {

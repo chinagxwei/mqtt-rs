@@ -276,6 +276,26 @@ impl From<BaseMessage> for UnsubackMessage {
     }
 }
 
+impl From<UnsubscribeMessage> for UnsubackMessage {
+    fn from(msg: UnsubscribeMessage) -> Self {
+        UnsubackMessage::new(msg.message_id)
+    }
+}
+
+impl UnsubackMessage {
+    pub fn new(message_id: u16) -> Self {
+        let mut msg = UnsubackMessage {
+            msg_type: TypeKind::UNSUBACK,
+            message_id,
+            codes: ReasonPhrases::Success.as_byte().to_ne_bytes().to_vec(),
+            properties: Some(Vec::default()),
+            bytes: None,
+        };
+        msg.bytes = Some(v5_packet::unsuback(&msg));
+        msg
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct DisconnectMessage {
     pub msg_type: TypeKind,

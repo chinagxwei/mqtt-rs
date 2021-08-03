@@ -334,12 +334,6 @@ impl MqttBytesMessage for UnsubscribeMessage {
     }
 }
 
-impl From<BaseMessage> for UnsubscribeMessage {
-    fn from(base: BaseMessage) -> Self {
-        v3_unpacket::unsubscribe(base)
-    }
-}
-
 impl UnsubscribeMessage {
     pub fn new(message_id: u16, topic: String) -> Self {
         let mut msg = UnsubscribeMessage {

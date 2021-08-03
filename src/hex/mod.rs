@@ -245,7 +245,6 @@ impl Property {
 
 impl Property {
     pub fn pack_property_handle(item: &PropertyItem, length: &mut usize, body: &mut Vec<u8>) {
-
         body.push(item.0 as u8);
 
         match item.0 {

@@ -78,7 +78,7 @@ pub fn publish(mut length: u32, mut data: &[u8]) -> Vec<PropertyItem> {
     properties
 }
 
-pub fn subscribe(mut length: u32, mut data: &[u8])-> Vec<PropertyItem>{
+pub fn subscribe(mut length: u32, mut data: &[u8]) -> Vec<PropertyItem> {
     let mut properties = vec![];
     loop {
         let property = data[0];
@@ -104,7 +104,7 @@ pub fn subscribe(mut length: u32, mut data: &[u8])-> Vec<PropertyItem>{
     properties
 }
 
-pub fn unsubscribe(mut length: u32, mut data: &[u8])-> Vec<PropertyItem>{
+pub fn unsubscribe(mut length: u32, mut data: &[u8]) -> Vec<PropertyItem> {
     let mut properties = vec![];
     loop {
         let property = data[0];
@@ -234,7 +234,7 @@ pub fn auth(mut length: u32, mut data: &[u8]) -> Vec<PropertyItem> {
     properties
 }
 
-pub fn pub_and_sub(mut length: u32, mut data: &[u8]) -> Vec<PropertyItem>{
+pub fn pub_and_sub(mut length: u32, mut data: &[u8]) -> Vec<PropertyItem> {
     let mut properties = vec![];
     loop {
         let property = data[0];
@@ -260,7 +260,7 @@ pub fn pub_and_sub(mut length: u32, mut data: &[u8]) -> Vec<PropertyItem>{
     properties
 }
 
-pub fn will_properties(mut length: u32, mut data: &[u8]) -> Vec<PropertyItem>{
+pub fn will_properties(mut length: u32, mut data: &[u8]) -> Vec<PropertyItem> {
     let mut properties = vec![];
     loop {
         let property = data[0];
