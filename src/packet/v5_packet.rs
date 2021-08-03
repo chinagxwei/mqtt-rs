@@ -1,5 +1,5 @@
-use crate::message::v5::ConnectMessage;
-use crate::tools::pack_tool::{pack_protocol_name, pack_connect_flags, pack_string, pack_short_int, pack_client_id, pack_header};
+use crate::message::v5::{ConnectMessage, SubackMessage};
+use crate::tools::pack_tool::{pack_protocol_name, pack_connect_flags, pack_string, pack_short_int, pack_client_id, pack_header, pack_message_short_id};
 use crate::protocol::{MqttWillFlag, MqttSessionPresent};
 use crate::hex::{pack_property, PropertyItem};
 use crate::types::TypeKind;
@@ -22,7 +22,7 @@ pub fn connect(msg: &ConnectMessage) -> Vec<u8> {
 
     body.extend(pack_short_int(msg.keep_alive as u16));
 
-    if msg.properties.is_some(){
+    if msg.properties.is_some() {
         body.extend(pack_property::connect(msg.properties.as_ref().unwrap()));
     }
 
@@ -60,14 +60,30 @@ pub fn connect(msg: &ConnectMessage) -> Vec<u8> {
     package
 }
 
-pub fn connack(session_present: MqttSessionPresent, return_code: ReasonCodeV5,properties:Option<&Vec<PropertyItem>>) -> Vec<u8> {
+pub fn connack(session_present: MqttSessionPresent, return_code: ReasonCodeV5, properties: Option<&Vec<PropertyItem>>) -> Vec<u8> {
     let mut body = vec![session_present as u8, return_code.as_byte()];
 
-    if properties.is_some(){
+    if properties.is_some() {
         body.extend(pack_property::connack(properties.unwrap()));
     }
 
     let mut package = pack_header(TypeKind::CONNACK, body.len());
+
+    package.extend(body);
+
+    package
+}
+
+pub fn suback(msg:&SubackMessage) -> Vec<u8> {
+    let mut body = pack_message_short_id(msg.message_id);
+
+    if msg.properties.is_some() {
+        body.extend(pack_property::suback(msg.properties.as_ref().unwrap()));
+    }
+
+    body.extend(msg.codes.clone());
+
+    let mut package = pack_header(TypeKind::SUBACK, body.len());
 
     package.extend(body);
 

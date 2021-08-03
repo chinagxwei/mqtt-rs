@@ -230,6 +230,25 @@ impl From<BaseMessage> for SubackMessage {
     }
 }
 
+impl From<SubscribeMessage> for SubackMessage {
+    fn from(mut smsg: SubscribeMessage) -> Self {
+        let codes = if (smsg.qos.unwrap() as u32) < 3 {
+            smsg.qos.unwrap().as_byte().to_ne_bytes().to_vec()
+        } else {
+            ReasonPhrases::QosNotSupported.as_byte().to_ne_bytes().to_vec()
+        };
+        let mut msg = SubackMessage {
+            msg_type: TypeKind::SUBACK,
+            message_id: smsg.message_id,
+            codes,
+            properties: Some(Vec::default()),
+            bytes: None,
+        };
+        msg.bytes = Some(v5_packet::suback(&msg));
+        msg
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct UnsubackMessage {
     pub msg_type: TypeKind,

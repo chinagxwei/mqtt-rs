@@ -34,6 +34,14 @@ impl MqttMessageKind {
         matches!(self, MqttMessageKind::RequestsV3(_))
     }
 
+    pub fn is_v5(&self) -> bool {
+        matches!(self, MqttMessageKind::RequestV5(_))
+    }
+
+    pub fn is_v5s(&self) -> bool {
+        matches!(self, MqttMessageKind::RequestsV5(_))
+    }
+
     pub fn get_v3(&self) -> Option<&MqttMessageV3> {
         match self {
             MqttMessageKind::RequestV3(kind) => {
@@ -43,9 +51,27 @@ impl MqttMessageKind {
         }
     }
 
+    pub fn get_v5(&self) -> Option<&MqttMessageV5> {
+        match self {
+            MqttMessageKind::RequestV5(kind) => {
+                Some(kind)
+            }
+            _ => { None }
+        }
+    }
+
     pub fn get_v3s(&self) -> Option<&Vec<MqttMessageV3>> {
         match self {
             MqttMessageKind::RequestsV3(kind) => {
+                Some(kind)
+            }
+            _ => { None }
+        }
+    }
+
+    pub fn get_v5s(&self) -> Option<&Vec<MqttMessageV5>> {
+        match self {
+            MqttMessageKind::RequestsV5(kind) => {
                 Some(kind)
             }
             _ => { None }
