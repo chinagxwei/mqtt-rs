@@ -1,12 +1,30 @@
 use crate::types::TypeKind;
 use crate::protocol::{MqttProtocolLevel, MqttCleanSession, MqttWillFlag, MqttQos, MqttRetain, MqttSessionPresent, MqttDup, MqttRetainAsPublished, MqttNoLocal};
 use crate::hex::{PropertyItem, Property, PropertyValue};
-use crate::message::{ConnectMessagePayload, BaseMessage, MqttMessage, MqttBytesMessage};
+use crate::message::{ConnectMessagePayload, BaseMessage, MqttMessage, MqttBytesMessage, PingreqMessage, PingrespMessage};
 use crate::packet::{v5_packet, v5_unpacket};
 use crate::hex::reason_code::{ReasonPhrases, ReasonCodeV5};
 
+// pub enum MqttMessageV5 {
+//     Connect(ConnectMessage),
+// }
+
+#[derive(Debug, Clone)]
 pub enum MqttMessageV5 {
     Connect(ConnectMessage),
+    Connack(ConnackMessage),
+    Publish(PublishMessage),
+    // Puback(PubackMessage),
+    // Pubrec(PubrecMessage),
+    // Pubrel(PubrelMessage),
+    // Pubcomp(PubcompMessage),
+    Subscribe(SubscribeMessage),
+    Suback(SubackMessage),
+    Unsubscribe(UnsubscribeMessage),
+    Unsuback(UnsubackMessage),
+    Pingreq(PingreqMessage),
+    Pingresp(PingrespMessage),
+    Disconnect(DisconnectMessage),
 }
 
 #[derive(Debug, Clone)]
@@ -128,19 +146,14 @@ impl From<BaseMessage> for PublishMessage {
 }
 
 #[derive(Debug, Clone)]
-pub struct SubscribeTopic {
+pub struct SubscribeMessage {
+    pub msg_type: TypeKind,
+    pub message_id: u16,
     pub topic: String,
     pub qos: Option<MqttQos>,
     pub no_local: Option<MqttNoLocal>,
     pub retain_as_published: Option<MqttRetainAsPublished>,
-    pub retain_handling: Option<u32>,
-}
-
-#[derive(Debug, Clone)]
-pub struct SubscribeMessage {
-    pub msg_type: TypeKind,
-    pub message_id: u16,
-    pub topics: Vec<SubscribeTopic>,
+    pub retain_handling: Option<u8>,
     pub properties: Option<Vec<PropertyItem>>,
     pub bytes: Option<Vec<u8>>,
 }
@@ -157,17 +170,17 @@ impl MqttBytesMessage for SubscribeMessage {
     }
 }
 
-impl From<BaseMessage> for SubscribeMessage {
-    fn from(base: BaseMessage) -> Self {
-        v5_unpacket::subscribe(base)
-    }
-}
+// impl From<BaseMessage> for SubscribeMessage {
+//     fn from(base: BaseMessage) -> Self {
+//         v5_unpacket::subscribe(base)
+//     }
+// }
 
 #[derive(Debug, Clone)]
 pub struct UnsubscribeMessage {
     pub msg_type: TypeKind,
     pub message_id: u16,
-    pub topics: Vec<SubscribeTopic>,
+    pub topic: String,
     pub properties: Option<Vec<PropertyItem>>,
     pub bytes: Option<Vec<u8>>,
 }
@@ -184,11 +197,11 @@ impl MqttBytesMessage for UnsubscribeMessage {
     }
 }
 
-impl From<BaseMessage> for UnsubscribeMessage {
-    fn from(base: BaseMessage) -> Self {
-        v5_unpacket::unsubscribe(base)
-    }
-}
+// impl From<BaseMessage> for UnsubscribeMessage {
+//     fn from(base: BaseMessage) -> Self {
+//         v5_unpacket::unsubscribe(base)
+//     }
+// }
 
 #[derive(Debug, Clone)]
 pub struct SubackMessage {

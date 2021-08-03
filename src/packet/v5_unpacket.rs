@@ -1,13 +1,12 @@
 use crate::message::BaseMessage;
-use crate::message::v5::{ConnectMessage, ConnackMessage, PublishMessage, SubscribeMessage, SubackMessage, UnsubackMessage, SubscribeTopic, UnsubscribeMessage, DisconnectMessage, AuthMessage, CommonPayload};
-use crate::tools::un_pack_tool::{parse_short_int, parse_byte, parse_string, get_connect_variable_header, get_connect_payload_data};
+use crate::message::v5::{ConnectMessage, ConnackMessage, PublishMessage, SubscribeMessage, SubackMessage, UnsubackMessage, UnsubscribeMessage, DisconnectMessage, AuthMessage, CommonPayload};
+use crate::tools::un_pack_tool::{parse_short_int, parse_byte, parse_string, get_connect_variable_header, get_connect_payload_data, get_remaining_data};
 use crate::hex::un_pack_property;
 use crate::protocol::{MqttQos, MqttNoLocal, MqttRetainAsPublished, MqttSessionPresent, MqttDup, MqttRetain};
 use std::convert::TryFrom;
 use crate::hex::reason_code::ReasonPhrases;
 
 pub fn connect(mut base: BaseMessage) -> ConnectMessage {
-
     let message_bytes = base.bytes.get(2..).unwrap();
 
     let (mut variable_header, last_data) = get_connect_variable_header(message_bytes);
@@ -109,87 +108,114 @@ pub fn publish(mut base: BaseMessage) -> PublishMessage {
     }
 }
 
-pub fn subscribe(mut base: BaseMessage) -> SubscribeMessage {
-    let message_bytes = base.bytes.get(2..).unwrap();
-
-    let (message_id, last_data) = parse_short_int(message_bytes);
-
-    let (properties_total_length, last_data) = parse_byte(last_data);
-
-    let properties = if properties_total_length > 0 {
-        Some(un_pack_property::subscribe(properties_total_length as u32, last_data))
-    } else {
-        None
-    };
-
-    let mut last_data = last_data.get(properties_total_length as usize..).unwrap();
-
-    let mut topics = vec![];
+pub fn subscribe(mut base: BaseMessage) -> Vec<SubscribeMessage> {
+    println!("{:?}", base.bytes);
+    let mut subs = vec![];
+    let mut data_bytes = base.bytes.as_slice();
 
     loop {
-        let (topic, last) = parse_string(last_data).unwrap();
-        let byte = *last.unwrap().get(0).unwrap();
-        topics.push(SubscribeTopic {
+        let remain_data = get_remaining_data(data_bytes);
+        let (message_id, last_data) = parse_short_int(remain_data);
+        let (properties_total_length, last_data) = parse_byte(last_data);
+        let (properties, last_data) = if properties_total_length > 0 {
+            (
+                Some(un_pack_property::subscribe(properties_total_length as u32, last_data)),
+                last_data.get(properties_total_length as usize..).unwrap()
+            )
+        } else {
+            (
+                None,
+                last_data
+            )
+        };
+
+        let (topic, last_data) = parse_string(last_data).unwrap();
+        let (byte_data, _) = parse_byte(last_data.unwrap());
+        let qos = byte_data & 3;
+        let no_local = byte_data >> 2 & 1;
+        let retain_as_published = byte_data >> 3 & 1;
+        let retain_handling = byte_data >> 4;
+        subs.push(SubscribeMessage {
+            msg_type: base.msg_type,
+            message_id,
             topic,
-            qos: Some(MqttQos::try_from((byte & 3)).unwrap()),
-            no_local: Some(MqttNoLocal::try_from((byte >> 2 & 1)).unwrap()),
-            retain_as_published: Some(MqttRetainAsPublished::try_from((byte >> 3 & 3)).unwrap()),
-            retain_handling: Some((byte >> 4) as u32),
+            qos: MqttQos::try_from(qos).ok(),
+            no_local: MqttNoLocal::try_from(no_local).ok(),
+            retain_as_published: MqttRetainAsPublished::try_from(retain_as_published).ok(),
+            retain_handling: Option::from(retain_handling),
+            properties,
+            bytes: Some(data_bytes.get(..remain_data.len() + 2).unwrap().to_vec()),
         });
-        if last.unwrap().len() > 1 {
-            last_data = last.unwrap().get(1..).unwrap();
+
+        if let Some(last_data) = data_bytes.get(remain_data.len() + 2..) {
+            if last_data.len() > 0 { data_bytes = last_data; } else { break; }
         } else {
             break;
         }
     }
 
-    SubscribeMessage {
-        msg_type: base.msg_type,
-        message_id,
-        topics,
-        properties,
-        bytes: Some(base.bytes),
-    }
+    println!("{:?}", subs);
+    subs
 }
 
-pub fn unsubscribe(mut base: BaseMessage) -> UnsubscribeMessage {
+pub fn unsubscribe(mut base: BaseMessage) {
     let message_bytes = base.bytes.get(2..).unwrap();
 
     let (message_id, last_data) = parse_short_int(message_bytes);
 
     let (properties_total_length, last_data) = parse_byte(last_data);
 
-    let properties = if properties_total_length > 0 {
-        Some(un_pack_property::unsubscribe(properties_total_length as u32, last_data))
+    let (properties, last_data) = if properties_total_length > 0 {
+        (
+            Some(un_pack_property::unsubscribe(properties_total_length as u32, last_data)),
+            last_data.get(properties_total_length as usize..).unwrap()
+        )
     } else {
-        None
+        (
+            None,
+            last_data
+        )
     };
 
-    let mut last_data = last_data.get(properties_total_length as usize..).unwrap();
+    let (topic, _) = parse_string(last_data).unwrap();
 
-    let mut topics = vec![];
-
-    loop {
-        let (topic, last) = parse_string(last_data).unwrap();
-        topics.push(SubscribeTopic {
-            topic,
-            qos: None,
-            no_local: None,
-            retain_as_published: None,
-            retain_handling: None,
-        });
-        if last.unwrap().len() <= 1 {
-            break;
-        }
-    }
-
-    UnsubscribeMessage {
-        msg_type: base.msg_type,
-        message_id,
-        topics,
-        properties,
-        bytes: Some(base.bytes),
-    }
+    // let message_bytes = base.bytes.get(2..).unwrap();
+    //
+    // let (message_id, last_data) = parse_short_int(message_bytes);
+    //
+    // let (properties_total_length, last_data) = parse_byte(last_data);
+    //
+    // let properties = if properties_total_length > 0 {
+    //     Some(un_pack_property::unsubscribe(properties_total_length as u32, last_data))
+    // } else {
+    //     None
+    // };
+    //
+    // let mut last_data = last_data.get(properties_total_length as usize..).unwrap();
+    //
+    // let mut topics = vec![];
+    //
+    // loop {
+    //     let (topic, last) = parse_string(last_data).unwrap();
+    //     topics.push(SubscribeTopic {
+    //         topic,
+    //         qos: None,
+    //         no_local: None,
+    //         retain_as_published: None,
+    //         retain_handling: None,
+    //     });
+    //     if last.unwrap().len() <= 1 {
+    //         break;
+    //     }
+    // }
+    //
+    // UnsubscribeMessage {
+    //     msg_type: base.msg_type,
+    //     message_id,
+    //     topics,
+    //     properties,
+    //     bytes: Some(base.bytes),
+    // };
 }
 
 pub fn suback(mut base: BaseMessage) -> SubackMessage {

@@ -77,9 +77,9 @@ pub fn publish(mut base: BaseMessage) -> PublishMessage {
 
 pub fn subscribe(mut base: BaseMessage) -> Vec<SubscribeMessage> {
     let mut subs = vec![];
-    let mut last = base.bytes.as_slice();
+    let mut data_bytes = base.bytes.as_slice();
     loop {
-        let remain_data = get_remaining_data(last);
+        let remain_data = get_remaining_data(data_bytes);
         let (message_id, last_data) = parse_short_int(remain_data);
         let (topic, last_data) = parse_string(last_data).unwrap();
         let (qos, _) = parse_byte(last_data.unwrap());
@@ -89,11 +89,11 @@ pub fn subscribe(mut base: BaseMessage) -> Vec<SubscribeMessage> {
                 message_id,
                 topic,
                 qos: MqttQos::try_from(qos).unwrap(),
-                bytes: Some(last.get(..remain_data.len() + 2).unwrap().to_vec()),
+                bytes: Some(data_bytes.get(..remain_data.len() + 2).unwrap().to_vec()),
             }
         );
-        if let Some(l) = last.get(remain_data.len() + 2..) {
-            if l.len() > 0 { last = l; } else { break; }
+        if let Some(last_data) = data_bytes.get(remain_data.len() + 2..) {
+            if last_data.len() > 0 { data_bytes = last_data; } else { break; }
         } else {
             break;
         }

@@ -9,6 +9,7 @@ use crate::protocol::{MqttProtocolLevel, MqttDup, MqttQos, MqttRetain};
 use crate::hex::PropertyItem;
 use crate::tools::pack_tool::pack_header;
 use crate::packet::v3_unpacket;
+use crate::message::v5::MqttMessageV5;
 
 pub mod v3;
 pub mod v5;
@@ -19,7 +20,8 @@ pub enum MqttMessageKind {
     Responses(Vec<Vec<u8>>),
     RequestV3(MqttMessageV3),
     RequestsV3(Vec<MqttMessageV3>),
-    RequestV5,
+    RequestV5(MqttMessageV5),
+    RequestsV5(Vec<MqttMessageV5>),
     Exit(Vec<u8>),
 }
 
@@ -73,12 +75,45 @@ impl MqttMessageKind {
             TypeKind::UNSUBACK => { Some(Self::RequestV3(MqttMessageV3::Unsuback(UnsubackMessage::from(base_msg)))) }
             TypeKind::PINGREQ => { Some(Self::RequestV3(MqttMessageV3::Pingresp(PingrespMessage::default()))) }
             TypeKind::DISCONNECT => { Some(Self::RequestV3(MqttMessageV3::Disconnect((DisconnectMessage::default())))) }
-            TypeKind::AUTH => { None }
+            // TypeKind::AUTH => { None }
             _ => { None }
         }
     }
 }
 
+impl MqttMessageKind {
+
+    pub fn v5(base_msg: BaseMessage) -> Option<MqttMessageKind> {
+        match base_msg.msg_type {
+            TypeKind::CONNECT => {
+                Some(
+                    Self::RequestV5(MqttMessageV5::Connect(crate::message::v5::ConnectMessage::from(base_msg)))
+                )
+            }
+            // TypeKind::CONNACK => {}
+            // TypeKind::PUBLISH => {}
+            // TypeKind::PUBACK => {}
+            // TypeKind::PUBREC => {}
+            // TypeKind::PUBREL => {}
+            // TypeKind::PUBCOMP => {}
+            TypeKind::SUBSCRIBE => {
+                let mut subs = crate::packet::v5_unpacket::subscribe(base_msg);
+                let res = subs.into_iter()
+                    .map(|x| MqttMessageV5::Subscribe(x))
+                    .collect::<Vec<MqttMessageV5>>();
+                Some(Self::RequestsV5(res))
+            }
+            // TypeKind::SUBACK => {}
+            // TypeKind::UNSUBSCRIBE => {}
+            // TypeKind::UNSUBACK => {}
+            TypeKind::PINGREQ => { Some(Self::RequestV5(MqttMessageV5::Pingresp(PingrespMessage::default()))) }
+            // TypeKind::PINGRESP => {}
+            // TypeKind::DISCONNECT => {}
+            // TypeKind::AUTH => {}
+            _ => { None }
+        }
+    }
+}
 
 pub trait MqttMessage {
     fn get_message_type(&self) -> TypeKind;
