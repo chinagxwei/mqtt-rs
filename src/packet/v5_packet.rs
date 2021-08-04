@@ -1,4 +1,4 @@
-use crate::message::v5::{ConnectMessage, SubackMessage, UnsubackMessage, DisconnectMessage, AuthMessage, SubscribeMessage, CommonPayloadMessage};
+use crate::message::v5::{ConnectMessage, SubackMessage, UnsubackMessage, DisconnectMessage, AuthMessage, SubscribeMessage, CommonPayloadMessage, PublishMessage};
 use crate::tools::pack_tool::{pack_protocol_name, pack_connect_flags, pack_string, pack_short_int, pack_client_id, pack_header, pack_message_short_id, pack_publish_header};
 use crate::protocol::{MqttWillFlag, MqttSessionPresent, MqttQos, MqttDup};
 use crate::hex::{pack_property, PropertyItem};
@@ -170,6 +170,26 @@ pub fn auth(msg: &AuthMessage) -> Vec<u8> {
     }
 
     let mut package = pack_header(TypeKind::AUTH, body.len());
+
+    package.extend(body);
+
+    package
+}
+
+pub fn publish(msg: &PublishMessage) -> Vec<u8> {
+    let mut body = pack_string(&msg.topic);
+
+    if msg.qos > 0 {
+        body.extend(pack_message_short_id(msg.message_id));
+    }
+
+    if msg.properties.is_some() {
+        body.extend(pack_property::publish(msg.properties.as_ref().unwrap()));
+    }
+
+    body.extend(msg.msg_body.as_bytes().to_vec());
+
+    let mut package = pack_publish_header(kind, body.len(), Option::from(msg.qos), Option::from(msg.dup), Option::from(msg.retain));
 
     package.extend(body);
 
