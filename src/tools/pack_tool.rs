@@ -46,7 +46,7 @@ pub fn pack_long_int(data: u32) -> Vec<u8> {
         .collect::<Vec<u8>>()
 }
 
-pub fn pack_var_int(len:usize)-> Vec<u8>{
+pub fn pack_var_int(len: usize) -> Vec<u8> {
     pack_remaining_length(len)
 }
 
@@ -55,7 +55,6 @@ pub fn pack_message_short_id(message_id: u16) -> Vec<u8> {
 }
 
 pub fn pack_header(header_type: TypeKind, body_length: usize) -> Vec<u8> {
-
     let mut header = vec![header_type.as_header_byte()];
 
     header.extend(pack_remaining_length(body_length));
@@ -90,11 +89,11 @@ pub fn pack_protocol_name(name_str: &String) -> Vec<u8> {
 
 pub fn pack_connect_flags(
     clean_session: MqttCleanSession,
-    will_flag:MqttWillFlag,
-    will_qos:MqttQos,
-    will_retain:MqttRetain,
-    username_flag:Option<&String>,
-    password_flag: Option<&String>
+    will_flag: MqttWillFlag,
+    will_qos: MqttQos,
+    will_retain: MqttRetain,
+    username_flag: Option<&String>,
+    password_flag: Option<&String>,
 ) -> Result<u8, String> {
     let mut connect_flags = 0_u8;
     if clean_session == MqttCleanSession::Enable {
@@ -159,7 +158,6 @@ pub fn pack_password(msg: &ConnectMessage) -> Option<Vec<u8>> {
 ///
 ///
 fn pack_remaining_length(mut length: usize) -> Vec<u8> {
-
     let mut remaining = vec![];
 
     loop {
