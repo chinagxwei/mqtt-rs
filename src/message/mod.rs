@@ -122,11 +122,29 @@ impl MqttMessageKind {
                 )
             }
             // TypeKind::CONNACK => {}
-            // TypeKind::PUBLISH => {}
-            // TypeKind::PUBACK => {}
-            // TypeKind::PUBREC => {}
-            // TypeKind::PUBREL => {}
-            // TypeKind::PUBCOMP => {}
+            TypeKind::PUBLISH => {
+                Some(Self::RequestV5(MqttMessageV5::Publish(crate::message::v5::PublishMessage::from(base_msg))))
+            }
+            TypeKind::PUBACK => {
+                Some(
+                    Self::RequestV5(MqttMessageV5::Puback(crate::message::v5::CommonPayloadMessage::from(base_msg)))
+                )
+            }
+            TypeKind::PUBREC => {
+                Some(
+                    Self::RequestV5(MqttMessageV5::Pubrec(crate::message::v5::CommonPayloadMessage::from(base_msg)))
+                )
+            }
+            TypeKind::PUBREL => {
+                Some(
+                    Self::RequestV5(MqttMessageV5::Pubrel(crate::message::v5::CommonPayloadMessage::from(base_msg)))
+                )
+            }
+            TypeKind::PUBCOMP => {
+                Some(
+                    Self::RequestV5(MqttMessageV5::Pubcomp(crate::message::v5::CommonPayloadMessage::from(base_msg)))
+                )
+            }
             TypeKind::SUBSCRIBE => {
                 let mut subs = crate::packet::v5_unpacket::subscribe(base_msg);
                 let res = subs.into_iter()

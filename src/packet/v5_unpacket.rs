@@ -1,5 +1,5 @@
 use crate::message::BaseMessage;
-use crate::message::v5::{ConnectMessage, ConnackMessage, PublishMessage, SubscribeMessage, SubackMessage, UnsubackMessage, UnsubscribeMessage, DisconnectMessage, AuthMessage, CommonPayload};
+use crate::message::v5::{ConnectMessage, ConnackMessage, PublishMessage, SubscribeMessage, SubackMessage, UnsubackMessage, UnsubscribeMessage, DisconnectMessage, AuthMessage, CommonPayloadMessage};
 use crate::tools::un_pack_tool::{parse_short_int, parse_byte, parse_string, get_connect_variable_header, get_connect_payload_data, get_remaining_data};
 use crate::hex::un_pack_property;
 use crate::protocol::{MqttQos, MqttNoLocal, MqttRetainAsPublished, MqttSessionPresent, MqttDup, MqttRetain};
@@ -19,7 +19,7 @@ pub fn connect(mut base: BaseMessage) -> ConnectMessage {
             last_data.get(properties_total_length as usize..).unwrap()
         )
     } else {
-        (None, last_data)
+        (Some(Vec::default()), last_data)
     };
 
     let mut payload = get_connect_payload_data(
@@ -57,7 +57,7 @@ pub fn connack(mut base: BaseMessage) -> ConnackMessage {
     let properties = if properties_total_length > 0 {
         Some(un_pack_property::connack(properties_total_length as u32, last_data))
     } else {
-        None
+        Some(Vec::default())
     };
 
     ConnackMessage {
@@ -71,28 +71,35 @@ pub fn connack(mut base: BaseMessage) -> ConnackMessage {
 
 pub fn publish(mut base: BaseMessage) -> PublishMessage {
     let message_bytes = base.bytes.get(2..).unwrap();
+
     let (topic, last_data) = parse_string(message_bytes).unwrap();
-    let (message_id, msg_body) = if base.qos.is_some() {
+
+    let (message_id, last_data) = if base.qos.is_some() {
         let qos = base.qos.unwrap();
         if qos > MqttQos::Qos0 {
             let (message_id, last_data) = parse_short_int(last_data.unwrap());
-            let msg_body = String::from_utf8_lossy(last_data);
-            (message_id, msg_body)
+            (message_id, last_data)
         } else {
-            let msg_body = String::from_utf8_lossy(last_data.unwrap());
-            (0, msg_body)
+            (0, last_data.unwrap())
         }
     } else {
-        let msg_body = String::from_utf8_lossy(last_data.unwrap());
-        (0, msg_body)
+        (0, last_data.unwrap())
     };
 
-    let (properties_total_length, last_data) = parse_byte(last_data.unwrap());
+    let (properties_total_length, last_data) = parse_byte(last_data);
 
-    let properties = if properties_total_length > 0 {
-        Some(un_pack_property::publish(properties_total_length as u32, last_data))
+    let (properties, msg_body) = if properties_total_length > 0 {
+        let msg_body = String::from_utf8_lossy(last_data.get(properties_total_length as usize..).unwrap());
+        (
+            Some(un_pack_property::publish(properties_total_length as u32, last_data)),
+            msg_body
+        )
     } else {
-        None
+        let msg_body = String::from_utf8_lossy(last_data);
+        (
+            Some(Vec::default()),
+            msg_body
+        )
     };
 
     PublishMessage {
@@ -124,7 +131,7 @@ pub fn subscribe(mut base: BaseMessage) -> Vec<SubscribeMessage> {
             )
         } else {
             (
-                None,
+                Some(Vec::default()),
                 last_data
             )
         };
@@ -174,7 +181,7 @@ pub fn unsubscribe(mut base: BaseMessage) -> Vec<UnsubscribeMessage> {
             )
         } else {
             (
-                None,
+                Some(Vec::default()),
                 last_data
             )
         };
@@ -210,7 +217,7 @@ pub fn suback(mut base: BaseMessage) -> SubackMessage {
     let properties = if properties_total_length > 0 {
         Some(un_pack_property::suback(properties_total_length as u32, last_data))
     } else {
-        None
+        Some(Vec::default())
     };
 
     let codes = last_data.to_vec();
@@ -234,7 +241,7 @@ pub fn unsuback(mut base: BaseMessage) -> UnsubackMessage {
     let properties = if properties_total_length > 0 {
         Some(un_pack_property::suback(properties_total_length as u32, last_data))
     } else {
-        None
+        Some(Vec::default())
     };
 
     let codes = last_data.to_vec();
@@ -268,7 +275,7 @@ pub fn disconnect(mut base: BaseMessage) -> DisconnectMessage {
     let properties = if properties_total_length > 0 {
         Some(un_pack_property::suback(properties_total_length as u32, last_data))
     } else {
-        None
+        Some(Vec::default())
     };
 
     DisconnectMessage {
@@ -299,7 +306,7 @@ pub fn auth(mut base: BaseMessage) -> AuthMessage {
     let properties = if properties_total_length > 0 {
         Some(un_pack_property::auth(properties_total_length as u32, last_data))
     } else {
-        None
+        Some(Vec::default())
     };
 
     AuthMessage {
@@ -310,13 +317,15 @@ pub fn auth(mut base: BaseMessage) -> AuthMessage {
     }
 }
 
-pub fn get_reason_code(mut base: BaseMessage) -> CommonPayload {
+pub fn get_reason_code(mut base: BaseMessage) -> CommonPayloadMessage {
     let message_bytes = base.bytes.get(2..).unwrap();
 
+    let (message_id, last_data) = parse_short_int(message_bytes);
+
     let (code, mut last_data) = if message_bytes.len() > 0 {
-        parse_byte(message_bytes)
+        parse_byte(last_data)
     } else {
-        (ReasonPhrases::Success as u8, message_bytes)
+        (ReasonPhrases::Success as u8, last_data)
     };
 
     let mut properties_total_length = 0;
@@ -330,13 +339,14 @@ pub fn get_reason_code(mut base: BaseMessage) -> CommonPayload {
     let properties = if properties_total_length > 0 {
         Some(un_pack_property::pub_and_sub(properties_total_length as u32, last_data))
     } else {
-        None
+        Some(Vec::default())
     };
 
-    CommonPayload {
+    CommonPayloadMessage {
         msg_type: base.msg_type,
-        code,
+        message_id,
+        code: crate::hex::reason_code::ReasonPhrases::try_from(code).unwrap(),
         properties,
-        bytes: base.bytes,
+        bytes: Some(base.bytes),
     }
 }

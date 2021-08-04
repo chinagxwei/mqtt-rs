@@ -14,10 +14,10 @@ pub enum MqttMessageV5 {
     Connect(ConnectMessage),
     Connack(ConnackMessage),
     Publish(PublishMessage),
-    // Puback(PubackMessage),
-    // Pubrec(PubrecMessage),
-    // Pubrel(PubrelMessage),
-    // Pubcomp(PubcompMessage),
+    Puback(CommonPayloadMessage),
+    Pubrec(CommonPayloadMessage),
+    Pubrel(CommonPayloadMessage),
+    Pubcomp(CommonPayloadMessage),
     Subscribe(SubscribeMessage),
     Suback(SubackMessage),
     Unsubscribe(UnsubscribeMessage),
@@ -171,12 +171,6 @@ impl MqttBytesMessage for SubscribeMessage {
     }
 }
 
-// impl From<BaseMessage> for SubscribeMessage {
-//     fn from(base: BaseMessage) -> Self {
-//         v5_unpacket::subscribe(base)
-//     }
-// }
-
 #[derive(Debug, Clone)]
 pub struct UnsubscribeMessage {
     pub msg_type: TypeKind,
@@ -197,12 +191,6 @@ impl MqttBytesMessage for UnsubscribeMessage {
         &self.bytes.as_ref().unwrap()
     }
 }
-
-// impl From<BaseMessage> for UnsubscribeMessage {
-//     fn from(base: BaseMessage) -> Self {
-//         v5_unpacket::unsubscribe(base)
-//     }
-// }
 
 #[derive(Debug, Clone)]
 pub struct SubackMessage {
@@ -382,21 +370,45 @@ impl Default for AuthMessage {
     }
 }
 
-pub struct CommonPayload {
+#[derive(Debug, Clone)]
+pub struct CommonPayloadMessage {
     pub msg_type: TypeKind,
-    pub code: u8,
+    pub message_id: u16,
+    pub code: ReasonPhrases,
     pub properties: Option<Vec<PropertyItem>>,
-    pub bytes: Vec<u8>,
+    pub bytes: Option<Vec<u8>>,
 }
 
-impl MqttMessage for CommonPayload {
+impl CommonPayloadMessage {
+    pub fn new(kind: TypeKind, message_id: u16) -> CommonPayloadMessage {
+        let mut msg = CommonPayloadMessage {
+            msg_type: kind,
+            message_id,
+            code: ReasonPhrases::Success,
+            properties: Some(Vec::default()),
+            bytes: None,
+        };
+        msg.bytes = Some(v5_packet::common(msg.message_id, msg.code, msg.properties.as_ref(), msg.msg_type));
+        msg
+    }
+}
+
+impl MqttMessage for CommonPayloadMessage {
     fn get_message_type(&self) -> TypeKind {
         self.msg_type
     }
 }
 
-impl MqttBytesMessage for CommonPayload {
+impl MqttBytesMessage for CommonPayloadMessage {
     fn as_bytes(&self) -> &[u8] {
-        &self.bytes.as_slice()
+        &self.bytes.as_ref().unwrap()
     }
 }
+
+impl From<BaseMessage> for CommonPayloadMessage {
+    fn from(base: BaseMessage) -> Self {
+        v5_unpacket::get_reason_code(base)
+    }
+}
+
+

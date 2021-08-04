@@ -1,4 +1,4 @@
-use crate::message::v5::{ConnectMessage, SubackMessage, UnsubackMessage, DisconnectMessage, AuthMessage, SubscribeMessage};
+use crate::message::v5::{ConnectMessage, SubackMessage, UnsubackMessage, DisconnectMessage, AuthMessage, SubscribeMessage, CommonPayloadMessage};
 use crate::tools::pack_tool::{pack_protocol_name, pack_connect_flags, pack_string, pack_short_int, pack_client_id, pack_header, pack_message_short_id, pack_publish_header};
 use crate::protocol::{MqttWillFlag, MqttSessionPresent, MqttQos, MqttDup};
 use crate::hex::{pack_property, PropertyItem};
@@ -175,8 +175,6 @@ pub fn auth(msg: &AuthMessage) -> Vec<u8> {
 
     package
 }
-
-
 
 pub fn common(message_id: u16, code: ReasonPhrases, properties: Option<&Vec<PropertyItem>>, kind: TypeKind) -> Vec<u8> {
     let mut body = pack_message_short_id(message_id);

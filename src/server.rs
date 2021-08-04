@@ -11,6 +11,7 @@ use crate::message::{MqttMessageKind, MqttBytesMessage, BaseMessage, MqttMessage
 use crate::types::TypeKind;
 
 use crate::SUBSCRIPT;
+use crate::message::v5::MqttMessageV5;
 
 #[derive(Debug, Clone, Eq, Hash)]
 pub struct ClientID(pub String);
@@ -52,7 +53,8 @@ impl PartialEq for ClientID {
 
 #[derive(Debug, Clone)]
 pub enum TopicMessage {
-    Content(ClientID, PublishMessage),
+    ContentV3(ClientID, crate::message::v3::PublishMessage),
+    ContentV5(ClientID, crate::message::v5::PublishMessage),
     Will(PublishMessage),
 }
 
@@ -240,7 +242,7 @@ impl Line {
             0,
             self.will_message.as_ref().unwrap().to_owned(),
         );
-        TopicMessage::Content(self.get_client_id().clone(), msg)
+        TopicMessage::ContentV3(self.get_client_id().clone(), msg)
     }
 
     pub fn get_will_topic(&self) -> &String {
@@ -248,6 +250,15 @@ impl Line {
     }
 
     pub fn init_v3(&mut self, connect_msg: &ConnectMessage) {
+        self.client_id = Some(ClientID(connect_msg.payload.client_id.to_owned()));
+        self.will_flag = Some(connect_msg.will_flag);
+        self.will_qos = Some(connect_msg.will_qos);
+        self.will_retain = Some(connect_msg.will_retain);
+        self.will_topic = connect_msg.payload.will_topic.clone();
+        self.will_message = connect_msg.payload.will_message.clone();
+    }
+
+    pub fn init_v5(&mut self, connect_msg: &crate::message::v5::ConnectMessage) {
         self.client_id = Some(ClientID(connect_msg.payload.client_id.to_owned()));
         self.will_flag = Some(connect_msg.will_flag);
         self.will_qos = Some(connect_msg.will_qos);
@@ -293,7 +304,7 @@ impl Line {
                                                         res.push(res_msg.as_bytes().to_vec());
                                                     }
                                                 }
-                                                return Some(MqttMessageKind::Responses(res));
+                                                return Some(MqttMessageKind::Response(res.concat()));
                                             }
                                         }
                                     }
@@ -301,11 +312,96 @@ impl Line {
                                     None
                                 }
                                 MqttProtocolLevel::Level5 => {
-                                    let msg = crate::packet::v5_unpacket::connect(base_msg);
-                                    println!("{:?}", msg);
-                                    None
+                                    if let Some(v5) = MqttMessageKind::v5(base_msg) {
+                                        if let MqttMessageKind::RequestV5(v5_type) = v5 {
+                                            match v5_type {
+                                                MqttMessageV5::Connect(msg) => {
+                                                    println!("{:?}", msg);
+                                                    self.init_v5(&msg);
+                                                    let mut connack = crate::message::v5::ConnackMessage::default();
+                                                    println!("{:?}", connack);
+                                                    return Some(MqttMessageKind::Response(connack.bytes));
+                                                }
+                                                // MqttMessageV5::Connack(_) => {}
+                                                MqttMessageV5::Publish(msg) => {
+                                                    let topic_msg = TopicMessage::ContentV5(self.get_client_id().to_owned(), msg.clone());
+                                                    println!("topic: {:?}", &msg.topic);
+                                                    println!("topic: {:?}", topic_msg);
+                                                    SUBSCRIPT.broadcast(&msg.topic, &topic_msg).await;
+                                                    if msg.qos == MqttQos::Qos1 {
+                                                        let mut puback = PubackMessage::new(msg.message_id);
+                                                        return Some(MqttMessageKind::Response(puback.bytes.unwrap()));
+                                                    }
+                                                }
+                                                // MqttMessageV5::Subscribe(msg) => {}
+                                                // MqttMessageV5::Suback(_) => {}
+                                                MqttMessageV5::Unsubscribe(msg) => {
+                                                    let unsub = crate::message::v5::UnsubackMessage::from(msg);
+                                                    return Some(MqttMessageKind::Response(unsub.as_bytes().to_vec()));
+                                                }
+                                                // MqttMessageV5::Unsuback(_) => {}
+                                                // MqttMessageV5::Pingreq(_) => {}
+                                                MqttMessageV5::Pingresp(msg) => {
+                                                    println!("{:?}", msg);
+                                                    return Some(MqttMessageKind::Response(msg.as_bytes().to_vec()));
+                                                }
+                                                MqttMessageV5::Disconnect(msg) => {
+                                                    println!("client disconnect");
+                                                    if self.is_will_flag() {
+                                                        let topic_msg = self.get_v3_topic_message();
+                                                        SUBSCRIPT.broadcast(self.get_will_topic(), &topic_msg).await;
+                                                    }
+                                                    SUBSCRIPT.exit(self.get_client_id()).await;
+                                                    return Some(MqttMessageKind::Exit(msg.as_bytes().to_vec()));
+                                                }
+                                                _ => { return None; }
+                                            }
+                                        } else if v5.is_v5s() {
+                                            if let Some(items) = v5.get_v5s() {
+                                                let mut res = vec![];
+                                                for x in items {
+                                                    match x {
+                                                        MqttMessageV5::Subscribe(msg) => {
+                                                            println!("{:?}", msg);
+                                                            let topic = &msg.topic;
+                                                            if SUBSCRIPT.contain(topic).await {
+                                                                SUBSCRIPT.subscript(topic, self.get_client_id(), self.get_sender());
+                                                            } else {
+                                                                SUBSCRIPT.new_subscript(topic, self.get_client_id(), self.get_sender()).await;
+                                                            }
+                                                            println!("broadcast topic len: {}", SUBSCRIPT.len().await);
+                                                            println!("broadcast topic list: {:?}", SUBSCRIPT.topics().await);
+                                                            println!("broadcast client len: {:?}", SUBSCRIPT.client_len(topic).await);
+                                                            println!("broadcast client list: {:?}", SUBSCRIPT.clients(topic).await);
+                                                            let mut suback = crate::message::v5::SubackMessage::from(msg.clone());
+                                                            println!("{:?}", suback);
+                                                            res.push(suback.bytes.unwrap());
+                                                        }
+                                                        MqttMessageV5::Unsubscribe(msg) => {
+                                                            println!("topic name: {}", &msg.topic);
+                                                            if SUBSCRIPT.contain(&msg.topic).await {
+                                                                if SUBSCRIPT.is_subscript(&msg.topic, self.get_client_id()).await {
+                                                                    SUBSCRIPT.unsubscript(&msg.topic, self.get_client_id()).await;
+                                                                    let mut unsuback = crate::message::v5::UnsubackMessage::new(msg.message_id);
+                                                                    res.push(unsuback.bytes.unwrap())
+                                                                }
+                                                            }
+                                                        }
+                                                        _ => {}
+                                                    }
+                                                }
+                                                return Some(MqttMessageKind::Response(res.concat()));
+                                            }
+                                            return None;
+                                        }
+                                        return None;
+                                    }
+
+                                    // let msg = crate::packet::v5_unpacket::connect(base_msg);
+                                    // println!("{:?}", msg);
+                                    return None;
                                 }
-                                _ => { None }
+                                _ => { return None; }
                             };
                         }
                         None
@@ -313,9 +409,18 @@ impl Line {
                     LineMessage::SubscriptionMessage(msg) => {
                         // println!("subscription msg");
                         return match msg {
-                            TopicMessage::Content(from_id, content) => {
-                                let to_client_id = self.client_id.as_ref().unwrap();
-                                if to_client_id != &from_id {
+                            TopicMessage::ContentV3(from_id, content) => {
+                                println!("from: {:?}", from_id);
+                                println!("to: {:?}", self.get_client_id());
+                                if self.get_client_id() != &from_id {
+                                    return Some(MqttMessageKind::Response(content.as_bytes().to_vec()));
+                                }
+                                None
+                            }
+                            TopicMessage::ContentV5(from_id, content) => {
+                                println!("from: {:?}", from_id);
+                                println!("to: {:?}", self.get_client_id());
+                                if self.get_client_id() != &from_id {
                                     return Some(MqttMessageKind::Response(content.as_bytes().to_vec()));
                                 }
                                 None
@@ -368,7 +473,7 @@ async fn handle_v3(line: &mut Line, kind_opt: Option<&MqttMessageV3>) -> Option<
             }
             MqttMessageV3::Publish(msg) => {
                 // println!("{:?}", msg);
-                let topic_msg = TopicMessage::Content(line.get_client_id().to_owned(), msg.clone());
+                let topic_msg = TopicMessage::ContentV3(line.get_client_id().to_owned(), msg.clone());
                 println!("topic: {:?}", topic_msg);
                 SUBSCRIPT.broadcast(&msg.topic, &topic_msg).await;
                 if msg.qos == MqttQos::Qos1 {
