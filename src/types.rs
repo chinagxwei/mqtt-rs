@@ -21,6 +21,12 @@ pub enum TypeKind {
 }
 
 impl TypeKind {
+    pub fn is_pubrel(&self) -> bool {
+        matches!(self,TypeKind::PUBREL)
+    }
+}
+
+impl TypeKind {
     pub fn as_str(&self) -> &'static str {
         match *self {
             TypeKind::CONNECT => { "connect" }

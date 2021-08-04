@@ -25,6 +25,7 @@ pub enum MqttMessageV5 {
     Pingreq(PingreqMessage),
     Pingresp(PingrespMessage),
     Disconnect(DisconnectMessage),
+    Auth(AuthMessage),
 }
 
 #[derive(Debug, Clone)]
@@ -304,6 +305,19 @@ pub struct DisconnectMessage {
     pub bytes: Vec<u8>,
 }
 
+impl DisconnectMessage {
+    pub fn new(code: ReasonPhrases, properties: Option<Vec<PropertyItem>>) -> DisconnectMessage {
+        let mut msg = DisconnectMessage {
+            msg_type: TypeKind::DISCONNECT,
+            code: code.as_byte(),
+            properties: if properties.is_some() { properties } else { Some(Vec::default()) },
+            bytes: vec![],
+        };
+        msg.bytes = v5_packet::disconnect(&msg);
+        msg
+    }
+}
+
 impl MqttMessage for DisconnectMessage {
     fn get_message_type(&self) -> TypeKind {
         self.msg_type
@@ -313,6 +327,19 @@ impl MqttMessage for DisconnectMessage {
 impl MqttBytesMessage for DisconnectMessage {
     fn as_bytes(&self) -> &[u8] {
         &self.bytes.as_slice()
+    }
+}
+
+impl Default for DisconnectMessage {
+    fn default() -> Self {
+        let mut msg = DisconnectMessage {
+            msg_type: TypeKind::DISCONNECT,
+            code: ReasonPhrases::Success.as_byte(),
+            properties: Some(Vec::default()),
+            bytes: vec![],
+        };
+        msg.bytes = v5_packet::disconnect(&msg);
+        msg
     }
 }
 
@@ -333,6 +360,25 @@ impl MqttMessage for AuthMessage {
 impl MqttBytesMessage for AuthMessage {
     fn as_bytes(&self) -> &[u8] {
         &self.bytes.as_slice()
+    }
+}
+
+impl From<BaseMessage> for AuthMessage {
+    fn from(base: BaseMessage) -> Self {
+        v5_unpacket::auth(base)
+    }
+}
+
+impl Default for AuthMessage {
+    fn default() -> Self {
+        let mut msg = AuthMessage {
+            msg_type: TypeKind::AUTH,
+            code: ReasonPhrases::Success.as_byte(),
+            properties: Some(Vec::default()),
+            bytes: vec![],
+        };
+        msg.bytes = v5_packet::auth(&msg);
+        msg
     }
 }
 

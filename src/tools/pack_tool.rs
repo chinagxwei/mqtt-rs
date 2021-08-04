@@ -63,17 +63,17 @@ pub fn pack_header(header_type: TypeKind, body_length: usize) -> Vec<u8> {
     header
 }
 
-pub fn pack_publish_header(header_type: TypeKind, body_length: usize, qos: MqttQos, dup: MqttDup, retain: MqttRetain) -> Vec<u8> {
+pub fn pack_publish_header(header_type: TypeKind, body_length: usize, qos: Option<MqttQos>, dup: Option<MqttDup>, retain: Option<MqttRetain>) -> Vec<u8> {
     let mut r#type = header_type.as_header_byte();
-    if dup == MqttDup::Enable {
+    if dup.is_some() && dup.unwrap() == MqttDup::Enable {
         r#type |= 1 << 3
     }
 
-    if qos > MqttQos::Qos0 {
-        r#type |= (qos as u8) << 1;
+    if qos.is_some() && qos.unwrap() > MqttQos::Qos0 {
+        r#type |= (qos.unwrap() as u8) << 1;
     }
 
-    if retain == MqttRetain::Enable {
+    if retain.is_some() && retain.unwrap() == MqttRetain::Enable {
         r#type |= 1;
     }
 

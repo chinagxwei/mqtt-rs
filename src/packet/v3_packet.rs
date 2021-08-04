@@ -68,7 +68,7 @@ pub fn publish(msg: &PublishMessage) -> Vec<u8> {
 
     body.extend(msg.msg_body.as_bytes().to_vec());
 
-    let mut package = pack_publish_header(msg.msg_type, body.len(), msg.qos, msg.dup, msg.retain);
+    let mut package = pack_publish_header(msg.msg_type, body.len(), Option::from(msg.qos), Option::from(msg.dup), Option::from(msg.retain));
 
     package.extend(body);
 

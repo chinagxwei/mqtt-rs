@@ -145,8 +145,8 @@ impl MqttMessageKind {
             // TypeKind::UNSUBACK => {}
             TypeKind::PINGREQ => { Some(Self::RequestV5(MqttMessageV5::Pingresp(PingrespMessage::default()))) }
             // TypeKind::PINGRESP => {}
-            // TypeKind::DISCONNECT => {}
-            // TypeKind::AUTH => {}
+            TypeKind::DISCONNECT => { Some(Self::RequestV5(MqttMessageV5::Disconnect(crate::message::v5::DisconnectMessage::default()))) }
+            TypeKind::AUTH => { Some(Self::RequestV5(MqttMessageV5::Auth(crate::message::v5::AuthMessage::default()))) }
             _ => { None }
         }
     }
