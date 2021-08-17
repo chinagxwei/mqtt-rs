@@ -431,23 +431,6 @@ impl PublishMessage {
     }
 }
 
-impl PublishMessage {
-    pub fn refresh(&self) -> PublishMessage {
-        let mut msg = PublishMessage {
-            msg_type: TypeKind::PUBLISH,
-            message_id: self.message_id,
-            topic: self.topic.clone(),
-            dup: self.dup,
-            qos: self.qos,
-            retain: self.retain,
-            msg_body: self.msg_body.clone(),
-            bytes: None,
-        };
-        msg.bytes = Some(v3_packet::publish(&msg));
-        msg
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct PubackMessage {
     pub msg_type: TypeKind,

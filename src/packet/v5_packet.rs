@@ -74,6 +74,26 @@ pub fn connack(session_present: MqttSessionPresent, return_code: ReasonCodeV5, p
     package
 }
 
+pub fn publish(msg: &PublishMessage) -> Vec<u8> {
+    let mut body = pack_string(&msg.topic);
+
+    if msg.qos > 0 {
+        body.extend(pack_message_short_id(msg.message_id));
+    }
+
+    if msg.properties.is_some() {
+        body.extend(pack_property::publish(msg.properties.as_ref().unwrap()));
+    }
+
+    body.extend(msg.msg_body.as_bytes().to_vec());
+
+    let mut package = pack_publish_header(kind, body.len(), Option::from(msg.qos), Option::from(msg.dup), Option::from(msg.retain));
+
+    package.extend(body);
+
+    package
+}
+
 pub fn subscribe(mut data: Vec<SubscribeMessage>) -> Vec<u8> {
     let collect = data.iter_mut().map(|msg| {
         let mut body = pack_message_short_id(msg.message_id);
@@ -170,26 +190,6 @@ pub fn auth(msg: &AuthMessage) -> Vec<u8> {
     }
 
     let mut package = pack_header(TypeKind::AUTH, body.len());
-
-    package.extend(body);
-
-    package
-}
-
-pub fn publish(msg: &PublishMessage) -> Vec<u8> {
-    let mut body = pack_string(&msg.topic);
-
-    if msg.qos > 0 {
-        body.extend(pack_message_short_id(msg.message_id));
-    }
-
-    if msg.properties.is_some() {
-        body.extend(pack_property::publish(msg.properties.as_ref().unwrap()));
-    }
-
-    body.extend(msg.msg_body.as_bytes().to_vec());
-
-    let mut package = pack_publish_header(kind, body.len(), Option::from(msg.qos), Option::from(msg.dup), Option::from(msg.retain));
 
     package.extend(body);
 
