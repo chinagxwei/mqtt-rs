@@ -77,7 +77,7 @@ pub fn connack(session_present: MqttSessionPresent, return_code: ReasonCodeV5, p
 pub fn publish(msg: &PublishMessage) -> Vec<u8> {
     let mut body = pack_string(&msg.topic);
 
-    if msg.qos > 0 {
+    if msg.qos as i32 > 0 {
         body.extend(pack_message_short_id(msg.message_id));
     }
 
@@ -87,7 +87,7 @@ pub fn publish(msg: &PublishMessage) -> Vec<u8> {
 
     body.extend(msg.msg_body.as_bytes().to_vec());
 
-    let mut package = pack_publish_header(kind, body.len(), Option::from(msg.qos), Option::from(msg.dup), Option::from(msg.retain));
+    let mut package = pack_publish_header(TypeKind::PUBLISH, body.len(), Option::from(msg.qos), Option::from(msg.dup), Option::from(msg.retain));
 
     package.extend(body);
 
