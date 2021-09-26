@@ -8,6 +8,7 @@ pub mod tools;
 pub mod packet;
 pub mod message;
 pub mod server;
+mod v3_handle;
 
 
 lazy_static! {
