@@ -1,5 +1,5 @@
 use num_enum::TryFromPrimitive;
-use crate::types::TypeKind;
+use crate::tools::types::TypeKind;
 use std::convert::{TryFrom, Infallible};
 use crate::tools::un_pack_tool::{parse_long_int, parse_string, parse_byte, parse_short_int, get_remaining_data, get_remaining_length, unpack_var_int};
 use crate::tools::pack_tool::{pack_long_int, pack_string, pack_byte, pack_short_int, pack_var_int};

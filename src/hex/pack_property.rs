@@ -1,6 +1,6 @@
 use crate::hex::{PropertyItem, Property};
 use crate::message::v5::ConnectMessage;
-use crate::types::TypeKind;
+use crate::tools::types::TypeKind;
 
 pub fn connect(data: &Vec<PropertyItem>) -> Vec<u8> {
     let mut length = 0_usize;

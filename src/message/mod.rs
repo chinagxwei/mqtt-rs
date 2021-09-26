@@ -1,11 +1,11 @@
-use crate::types::TypeKind;
+use crate::tools::types::TypeKind;
 use crate::tools::un_pack_tool::{get_type, get_protocol_name_and_version};
 use crate::message::v3::{
     ConnackMessage, ConnectMessage, DisconnectMessage, MqttMessageV3,
     PubackMessage, PubcompMessage, PublishMessage, PubrecMessage, PubrelMessage,
     SubackMessage, SubscribeMessage, UnsubackMessage, UnsubscribeMessage,
 };
-use crate::protocol::{MqttProtocolLevel, MqttDup, MqttQos, MqttRetain};
+use crate::tools::protocol::{MqttProtocolLevel, MqttDup, MqttQos, MqttRetain};
 use crate::hex::PropertyItem;
 use crate::tools::pack_tool::pack_header;
 use crate::packet::v3_unpacket;

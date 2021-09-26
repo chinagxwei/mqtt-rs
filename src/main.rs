@@ -8,8 +8,8 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt, AsyncWrite};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Sender, Receiver};
 use mqtt_demo::message::{BaseMessage, MqttMessage, BaseConnect, MqttMessageKind, MqttBytesMessage};
-use mqtt_demo::protocol::{MqttProtocolLevel, MqttWillFlag, MqttQos, MqttRetain, MqttDup};
-use mqtt_demo::types::TypeKind;
+use mqtt_demo::tools::protocol::{MqttProtocolLevel, MqttWillFlag, MqttQos, MqttRetain, MqttDup};
+use mqtt_demo::tools::types::TypeKind;
 use mqtt_demo::message::v3::{ConnackMessage, ConnectMessage, DisconnectMessage, MqttMessageV3, PubackMessage, PubcompMessage, PublishMessage, PubrecMessage, PubrelMessage, SubackMessage, SubscribeMessage, UnsubackMessage, UnsubscribeMessage};
 use mqtt_demo::server::{TopicMessage, ClientID, LineMessage, Line};
 

@@ -2,7 +2,7 @@ use crate::message::BaseMessage;
 use crate::message::v5::{ConnectMessage, ConnackMessage, PublishMessage, SubscribeMessage, SubackMessage, UnsubackMessage, UnsubscribeMessage, DisconnectMessage, AuthMessage, CommonPayloadMessage};
 use crate::tools::un_pack_tool::{parse_short_int, parse_byte, parse_string, get_connect_variable_header, get_connect_payload_data, get_remaining_data};
 use crate::hex::un_pack_property;
-use crate::protocol::{MqttQos, MqttNoLocal, MqttRetainAsPublished, MqttSessionPresent, MqttDup, MqttRetain};
+use crate::tools::protocol::{MqttQos, MqttNoLocal, MqttRetainAsPublished, MqttSessionPresent, MqttDup, MqttRetain};
 use std::convert::TryFrom;
 use crate::hex::reason_code::ReasonPhrases;
 

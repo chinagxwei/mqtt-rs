@@ -6,9 +6,9 @@ use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Sender, Receiver};
 use tokio::net::TcpStream;
 use tokio::io::{AsyncWriteExt, AsyncReadExt};
-use crate::protocol::{MqttProtocolLevel, MqttWillFlag, MqttQos, MqttRetain, MqttDup};
+use crate::tools::protocol::{MqttProtocolLevel, MqttWillFlag, MqttQos, MqttRetain, MqttDup};
 use crate::message::{MqttMessageKind, MqttBytesMessage, BaseMessage, MqttMessage, BaseConnect};
-use crate::types::TypeKind;
+use crate::tools::types::TypeKind;
 
 use crate::SUBSCRIPT;
 use crate::message::v5::MqttMessageV5;

@@ -1,8 +1,8 @@
 use crate::message::v5::{ConnectMessage, SubackMessage, UnsubackMessage, DisconnectMessage, AuthMessage, SubscribeMessage, CommonPayloadMessage, PublishMessage};
 use crate::tools::pack_tool::{pack_protocol_name, pack_connect_flags, pack_string, pack_short_int, pack_client_id, pack_header, pack_message_short_id, pack_publish_header};
-use crate::protocol::{MqttWillFlag, MqttSessionPresent, MqttQos, MqttDup};
+use crate::tools::protocol::{MqttWillFlag, MqttSessionPresent, MqttQos, MqttDup};
 use crate::hex::{pack_property, PropertyItem};
-use crate::types::TypeKind;
+use crate::tools::types::TypeKind;
 use crate::hex::reason_code::{ReasonCodeV5, ReasonPhrases};
 
 pub fn connect(msg: &ConnectMessage) -> Vec<u8> {

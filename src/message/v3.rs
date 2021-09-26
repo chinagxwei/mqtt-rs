@@ -1,6 +1,6 @@
-use crate::types::TypeKind;
+use crate::tools::types::TypeKind;
 use crate::tools::un_pack_tool::{get_type, parse_string, parse_short_int, get_publish_header, get_connect_variable_header};
-use crate::protocol::{MqttProtocolLevel, MqttWillMessage, MqttCleanSession, MqttWillFlag, MqttWillTopic, MqttUsernameFlag, MqttPasswordFlag, MqttSessionPresent, MqttDup, MqttQos, MqttRetain};
+use crate::tools::protocol::{MqttProtocolLevel, MqttWillMessage, MqttCleanSession, MqttWillFlag, MqttWillTopic, MqttUsernameFlag, MqttPasswordFlag, MqttSessionPresent, MqttDup, MqttQos, MqttRetain};
 use std::convert::TryFrom;
 use crate::hex::reason_code::{ReasonCodeV3, ReasonCodes};
 use crate::tools::pack_tool::{pack_header};

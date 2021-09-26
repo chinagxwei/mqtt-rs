@@ -1,5 +1,5 @@
-use crate::types::TypeKind;
-use crate::protocol::{MqttProtocolLevel, MqttCleanSession, MqttWillFlag, MqttQos, MqttRetain, MqttSessionPresent, MqttDup, MqttRetainAsPublished, MqttNoLocal};
+use crate::tools::types::TypeKind;
+use crate::tools::protocol::{MqttProtocolLevel, MqttCleanSession, MqttWillFlag, MqttQos, MqttRetain, MqttSessionPresent, MqttDup, MqttRetainAsPublished, MqttNoLocal};
 use crate::hex::{PropertyItem, Property, PropertyValue};
 use crate::message::{ConnectMessagePayload, BaseMessage, MqttMessage, MqttBytesMessage, PingreqMessage, PingrespMessage};
 use crate::packet::{v5_packet, v5_unpacket};

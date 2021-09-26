@@ -1,4 +1,4 @@
-use crate::protocol::{MqttProtocolLevel, MQTT_PROTOCOL_NAME, MqttWillFlag, MqttQos, MqttRetain};
+use crate::tools::protocol::{MqttProtocolLevel, MQTT_PROTOCOL_NAME, MqttWillFlag, MqttQos, MqttRetain};
 use crate::hex::Property;
 
 #[derive(Debug)]
