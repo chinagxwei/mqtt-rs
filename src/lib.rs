@@ -6,7 +6,6 @@ use crate::server::Subscript;
 pub mod types;
 pub mod hex;
 pub mod tools;
-pub mod config;
 pub mod packet;
 pub mod message;
 pub mod protocol;
