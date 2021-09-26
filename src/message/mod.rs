@@ -17,7 +17,6 @@ pub mod v5;
 #[derive(Debug)]
 pub enum MqttMessageKind {
     Response(Vec<u8>),
-    Responses(Vec<Vec<u8>>),
     RequestV3(MqttMessageV3),
     RequestsV3(Vec<MqttMessageV3>),
     RequestV5(MqttMessageV5),
