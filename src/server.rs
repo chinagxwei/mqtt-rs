@@ -288,27 +288,31 @@ impl Line {
                             return match level {
                                 MqttProtocolLevel::Level3_1_1 => {
                                     if let Some(v3) = MqttMessageKind::v3(base_msg) {
-                                        if v3.is_v3() {
-                                            if let Some(res_msg) = handle_v3(self, v3.get_v3()).await {
-                                                return if res_msg.is_disconnect() {
+                                        return match (
+                                            v3.is_v3(),
+                                            v3.is_v3s(),
+                                            handle_v3(self, v3.get_v3()).await,
+                                            v3.get_v3s()
+                                        ) {
+                                            (true, _, Some(res_msg), _) => {
+                                                if res_msg.is_disconnect() {
                                                     Some(MqttMessageKind::Exit(res_msg.as_bytes().to_vec()))
                                                 } else {
                                                     Some(MqttMessageKind::Response(res_msg.as_bytes().to_vec()))
-                                                };
+                                                }
                                             }
-                                        } else if v3.is_v3s() {
-                                            if let Some(items) = v3.get_v3s() {
+                                            (_, true, _, Some(items)) => {
                                                 let mut res = vec![];
                                                 for x in items {
                                                     if let Some(res_msg) = handle_v3(self, Some(x)).await {
                                                         res.push(res_msg.as_bytes().to_vec());
                                                     }
                                                 }
-                                                return Some(MqttMessageKind::Response(res.concat()));
+                                                Some(MqttMessageKind::Response(res.concat()))
                                             }
-                                        }
+                                            _ => None
+                                        };
                                     }
-
                                     None
                                 }
                                 MqttProtocolLevel::Level5 => {
@@ -445,57 +449,62 @@ async fn handle_v3(line: &mut Line, kind_opt: Option<&MqttMessageV3>) -> Option<
             }
             // MqttMessageV3::Puback(msg) => {
             // }
-            MqttMessageV3::Subscribe(msg) => {
-                println!("{:?}", msg);
-                let topic = &msg.topic;
-                if SUBSCRIPT.contain(topic).await {
-                    SUBSCRIPT.subscript(topic, line.get_client_id(), line.get_sender());
-                } else {
-                    SUBSCRIPT.new_subscript(topic, line.get_client_id(), line.get_sender()).await;
-                }
-                println!("broadcast topic len: {}", SUBSCRIPT.len().await);
-                println!("broadcast topic list: {:?}", SUBSCRIPT.topics().await);
-                println!("broadcast client len: {:?}", SUBSCRIPT.client_len(topic).await);
-                println!("broadcast client list: {:?}", SUBSCRIPT.clients(topic).await);
-                let sm = SubackMessage::from(msg.clone());
-                println!("{:?}", sm);
-                return Some(MqttMessageV3::Suback(sm));
-            }
-            MqttMessageV3::Unsubscribe(msg) => {
-                println!("topic name: {}", &msg.topic);
-                if SUBSCRIPT.contain(&msg.topic).await {
-                    if SUBSCRIPT.is_subscript(&msg.topic, line.get_client_id()).await {
-                        SUBSCRIPT.unsubscript(&msg.topic, line.get_client_id()).await;
-                        return Some(MqttMessageV3::Unsuback(UnsubackMessage::new(msg.message_id)));
-                    }
-                }
-                return None;
-            }
-            MqttMessageV3::Publish(msg) => {
-                // println!("{:?}", msg);
-                let topic_msg = TopicMessage::ContentV3(line.get_client_id().to_owned(), msg.clone());
-                println!("topic: {:?}", topic_msg);
-                SUBSCRIPT.broadcast(&msg.topic, &topic_msg).await;
-                if msg.qos == MqttQos::Qos1 {
-                    return Some(MqttMessageV3::Puback(PubackMessage::new(msg.message_id)));
-                }
-                return None;
-            }
-            MqttMessageV3::Pingresp(msg) => {
-                return Some(MqttMessageV3::Pingresp(msg.clone()));
-            }
-            MqttMessageV3::Disconnect(_) => {
-                println!("client disconnect");
-                if line.is_will_flag() {
-                    let topic_msg = line.get_v3_topic_message();
-                    SUBSCRIPT.broadcast(line.get_will_topic(), &topic_msg).await;
-                }
-                SUBSCRIPT.exit(line.get_client_id()).await;
-                return Some(MqttMessageV3::Disconnect(DisconnectMessage::default()));
-            }
+            MqttMessageV3::Subscribe(msg) => return handle_v3_subscribe(line, msg).await,
+            MqttMessageV3::Unsubscribe(msg) => return handle_v3_unsubscribe(line, msg).await,
+            MqttMessageV3::Publish(msg) => return handle_v3_publish(line, msg).await,
+            MqttMessageV3::Pingresp(msg) => return Some(MqttMessageV3::Pingresp(msg.clone())),
+            MqttMessageV3::Disconnect(_) => return handle_v3_disconnect(line).await,
             _ => { return None; }
         }
     }
     None
+}
+
+async fn handle_v3_publish(line: &mut Line, msg: &PublishMessage) -> Option<MqttMessageV3> {
+    let topic_msg = TopicMessage::ContentV3(line.get_client_id().to_owned(), msg.clone());
+    println!("topic: {:?}", topic_msg);
+    SUBSCRIPT.broadcast(&msg.topic, &topic_msg).await;
+    if msg.qos == MqttQos::Qos1 {
+        return Some(MqttMessageV3::Puback(PubackMessage::new(msg.message_id)));
+    }
+    return None;
+}
+
+async fn handle_v3_subscribe(line: &mut Line, msg: &SubscribeMessage) -> Option<MqttMessageV3> {
+    println!("{:?}", msg);
+    let topic = &msg.topic;
+    if SUBSCRIPT.contain(topic).await {
+        SUBSCRIPT.subscript(topic, line.get_client_id(), line.get_sender());
+    } else {
+        SUBSCRIPT.new_subscript(topic, line.get_client_id(), line.get_sender()).await;
+    }
+    println!("broadcast topic len: {}", SUBSCRIPT.len().await);
+    println!("broadcast topic list: {:?}", SUBSCRIPT.topics().await);
+    println!("broadcast client len: {:?}", SUBSCRIPT.client_len(topic).await);
+    println!("broadcast client list: {:?}", SUBSCRIPT.clients(topic).await);
+    let sm = SubackMessage::from(msg.clone());
+    println!("{:?}", sm);
+    return Some(MqttMessageV3::Suback(sm));
+}
+
+async fn handle_v3_unsubscribe(line: &mut Line, msg: &UnsubscribeMessage) -> Option<MqttMessageV3> {
+    println!("topic name: {}", &msg.topic);
+    if SUBSCRIPT.contain(&msg.topic).await {
+        if SUBSCRIPT.is_subscript(&msg.topic, line.get_client_id()).await {
+            SUBSCRIPT.unsubscript(&msg.topic, line.get_client_id()).await;
+            return Some(MqttMessageV3::Unsuback(UnsubackMessage::new(msg.message_id)));
+        }
+    }
+    return None;
+}
+
+async fn handle_v3_disconnect(line: &mut Line) -> Option<MqttMessageV3> {
+    println!("client disconnect");
+    if line.is_will_flag() {
+        let topic_msg = line.get_v3_topic_message();
+        SUBSCRIPT.broadcast(line.get_will_topic(), &topic_msg).await;
+    }
+    SUBSCRIPT.exit(line.get_client_id()).await;
+    return Some(MqttMessageV3::Disconnect(DisconnectMessage::default()));
 }
 
