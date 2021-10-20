@@ -9,6 +9,7 @@ pub mod packet;
 pub mod message;
 pub mod server;
 mod v3_handle;
+mod session;
 
 
 lazy_static! {
