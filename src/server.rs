@@ -12,10 +12,15 @@ use crate::subscript::TopicMessage;
 use crate::tools::protocol::MqttQos;
 use crate::SUBSCRIPT;
 
+pub enum ServerHandleKind{
+    Response(Vec<u8>),
+    Exit(Vec<u8>),
+}
+
 pub struct MqttServer<F, Fut>
     where
         F: Fn(Session, BaseMessage) -> Fut + Copy + Clone + Send + Sync + 'static,
-        Fut: Future<Output=Option<MqttMessageKind>> + Send,
+        Fut: Future<Output=Option<ServerHandleKind>> + Send,
 {
     addr: SocketAddr,
     handle: Option<Box<F>>,
@@ -24,7 +29,7 @@ pub struct MqttServer<F, Fut>
 impl<F, Fut> MqttServer<F, Fut>
     where
         F: Fn(Session, BaseMessage) -> Fut + Copy + Clone + Send + Sync + 'static,
-        Fut: Future<Output=Option<MqttMessageKind>> + Send
+        Fut: Future<Output=Option<ServerHandleKind>> + Send
 {
     pub fn new(addr: SocketAddr) -> MqttServer<F, Fut> {
         MqttServer { addr, handle: None }
@@ -56,13 +61,13 @@ impl<F, Fut> MqttServer<F, Fut>
                     };
                     if let Some(kind) = res {
                         match kind {
-                            MqttMessageKind::Response(data) => {
+                            ServerHandleKind::Response(data) => {
                                 println!("data: {:?}", data);
                                 if let Err(e) = stream.write_all(data.as_slice()).await {
                                     println!("failed to write to socket; err = {:?}", e);
                                 }
                             }
-                            MqttMessageKind::Exit(data) => {
+                            ServerHandleKind::Exit(data) => {
                                 if let Err(e) = stream.write_all(data.as_slice()).await {
                                     println!("failed to write to socket; err = {:?}", e);
                                 }

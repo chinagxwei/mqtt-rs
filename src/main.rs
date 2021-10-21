@@ -4,7 +4,7 @@ use tokio::sync::mpsc::Sender;
 use mqtt_demo::{SUBSCRIPT};
 use mqtt_demo::message::{BaseMessage, MqttMessageKind};
 use mqtt_demo::message::v3::{SubackMessage, DisconnectMessage, MqttMessageV3, PubackMessage, PublishMessage, SubscribeMessage, UnsubackMessage, UnsubscribeMessage};
-use mqtt_demo::server::MqttServer;
+use mqtt_demo::server::{MqttServer, ServerHandleKind};
 use mqtt_demo::subscript::TopicMessage;
 use mqtt_demo::tools::protocol::MqttQos;
 use mqtt_demo::v3_session::{LinkMessage, Session};
@@ -17,38 +17,30 @@ async fn main() {
     );
     let server = MqttServer::new(SocketAddr::from(socket));
     server
-        .handle(handle_message)
+        .handle(handle_v3_message)
         .start()
         .await;
 }
 
-async fn handle_message(mut session: Session, base_msg: BaseMessage) -> Option<MqttMessageKind> {
-    match_v3_data(&mut session, base_msg).await
-}
-
-pub async fn match_v3_data(session: &mut Session, base_msg: BaseMessage) -> Option<MqttMessageKind> {
+pub async fn handle_v3_message(mut session: Session, base_msg: BaseMessage) -> Option<ServerHandleKind> {
     if let Some(v3) = MqttMessageKind::v3(base_msg) {
-        return match (
-            v3.is_v3(),
-            v3.is_v3s(),
-            handle_v3(session, v3.get_v3()).await,
-            v3.get_v3s()
-        ) {
-            (true, _, Some(res_msg), _) => {
+        return match v3{
+            MqttMessageKind::RequestV3(ref msg) => {
+                let res_msg  = handle_v3(&mut session, Some(msg)).await.expect("handle v3 message error");
                 if res_msg.is_disconnect() {
-                    Some(MqttMessageKind::Exit(res_msg.as_bytes().to_vec()))
+                    Some(ServerHandleKind::Exit(res_msg.as_bytes().to_vec()))
                 } else {
-                    Some(MqttMessageKind::Response(res_msg.as_bytes().to_vec()))
+                    Some(ServerHandleKind::Response(res_msg.as_bytes().to_vec()))
                 }
             }
-            (_, true, _, Some(items)) => {
+            MqttMessageKind::RequestV3Vec(ref items) => {
                 let mut res = vec![];
                 for x in items {
-                    if let Some(res_msg) = handle_v3(session, Some(x)).await {
+                    if let Some(res_msg) = handle_v3(&mut session, Some(x)).await {
                         res.push(res_msg.as_bytes().to_vec());
                     }
                 }
-                Some(MqttMessageKind::Response(res.concat()))
+                Some(ServerHandleKind::Response(res.concat()))
             }
             _ => None
         };

@@ -12,6 +12,7 @@ use crate::tools::types::TypeKind;
 use crate::message::{MqttMessageKind, MqttBytesMessage, BaseMessage, MqttMessage, BaseConnect};
 use crate::message::MqttMessageKind::*;
 use crate::message::v3::MqttMessageV3::*;
+use crate::server::ServerHandleKind;
 use crate::SUBSCRIPT;
 
 pub enum LinkMessage {
@@ -38,10 +39,10 @@ impl Link {
         self.session().sender.send(msg).await;
     }
 
-    pub async fn handle<F, Fut>(&mut self, f: F) -> Option<MqttMessageKind>
+    pub async fn handle<F, Fut>(&mut self, f: F) -> Option<ServerHandleKind>
         where
             F: Fn(Session, BaseMessage) -> Fut + Send + Sync + 'static,
-            Fut: Future<Output=Option<MqttMessageKind>> + Send
+            Fut: Future<Output=Option<ServerHandleKind>> + Send
     {
         match self.receiver.recv().await {
             None => {}
@@ -54,7 +55,7 @@ impl Link {
                             self.session.init_protocol(connect.get_protocol_name(), connect.get_protocol_level());
                             let connect_msg = ConnectMessage::from(base_msg);
                             self.session.init_v3(&connect_msg);
-                            return Some(MqttMessageKind::Response(ConnackMessage::default().bytes));
+                            return Some(ServerHandleKind::Response(ConnackMessage::default().bytes));
                         }
                         return f(self.session.clone(), base_msg).await;
                     }
@@ -65,12 +66,12 @@ impl Link {
                                 println!("from: {:?}", from_id);
                                 println!("to: {:?}", client_id);
                                 if client_id != &from_id {
-                                    return Some(MqttMessageKind::Response(content.as_bytes().to_vec()));
+                                    return Some(ServerHandleKind::Response(content.as_bytes().to_vec()));
                                 }
                                 None
                             }
                             TopicMessage::Will(content) => {
-                                Some(MqttMessageKind::Response(content.as_bytes().to_vec()))
+                                Some(ServerHandleKind::Response(content.as_bytes().to_vec()))
                             }
                             _ => None
                         };

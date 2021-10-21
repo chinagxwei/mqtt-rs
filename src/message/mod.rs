@@ -16,12 +16,10 @@ pub mod v5;
 
 #[derive(Debug)]
 pub enum MqttMessageKind {
-    Response(Vec<u8>),
     RequestV3(MqttMessageV3),
-    RequestsV3(Vec<MqttMessageV3>),
+    RequestV3Vec(Vec<MqttMessageV3>),
     RequestV5(MqttMessageV5),
-    RequestsV5(Vec<MqttMessageV5>),
-    Exit(Vec<u8>),
+    RequestV5Vec(Vec<MqttMessageV5>),
 }
 
 impl MqttMessageKind {
@@ -30,7 +28,7 @@ impl MqttMessageKind {
     }
 
     pub fn is_v3s(&self) -> bool {
-        matches!(self, MqttMessageKind::RequestsV3(_))
+        matches!(self, MqttMessageKind::RequestV3Vec(_))
     }
 
     pub fn is_v5(&self) -> bool {
@@ -38,7 +36,7 @@ impl MqttMessageKind {
     }
 
     pub fn is_v5s(&self) -> bool {
-        matches!(self, MqttMessageKind::RequestsV5(_))
+        matches!(self, MqttMessageKind::RequestV5Vec(_))
     }
 
     pub fn get_v3(&self) -> Option<&MqttMessageV3> {
@@ -61,7 +59,7 @@ impl MqttMessageKind {
 
     pub fn get_v3s(&self) -> Option<&Vec<MqttMessageV3>> {
         match self {
-            MqttMessageKind::RequestsV3(kind) => {
+            MqttMessageKind::RequestV3Vec(kind) => {
                 Some(kind)
             }
             _ => { None }
@@ -70,7 +68,7 @@ impl MqttMessageKind {
 
     pub fn get_v5s(&self) -> Option<&Vec<MqttMessageV5>> {
         match self {
-            MqttMessageKind::RequestsV5(kind) => {
+            MqttMessageKind::RequestV5Vec(kind) => {
                 Some(kind)
             }
             _ => { None }
@@ -93,7 +91,7 @@ impl MqttMessageKind {
                 let res = subs.into_iter()
                     .map(|x| MqttMessageV3::Subscribe(x))
                     .collect::<Vec<MqttMessageV3>>();
-                Some(Self::RequestsV3(res))
+                Some(Self::RequestV3Vec(res))
             }
             // TypeKind::SUBACK => { Some(Self::RequestV3(MqttMessageV3::Suback(SubackMessage::from(base_msg)))) }
             TypeKind::UNSUBSCRIBE => {
@@ -101,7 +99,7 @@ impl MqttMessageKind {
                 let res = subs.into_iter()
                     .map(|x| MqttMessageV3::Unsubscribe(x))
                     .collect::<Vec<MqttMessageV3>>();
-                Some(Self::RequestsV3(res))
+                Some(Self::RequestV3Vec(res))
             }
             TypeKind::UNSUBACK => { Some(Self::RequestV3(MqttMessageV3::Unsuback(UnsubackMessage::from(base_msg)))) }
             TypeKind::PINGREQ => { Some(Self::RequestV3(MqttMessageV3::Pingresp(PingrespMessage::default()))) }
@@ -149,7 +147,7 @@ impl MqttMessageKind {
                 let res = subs.into_iter()
                     .map(|x| MqttMessageV5::Subscribe(x))
                     .collect::<Vec<MqttMessageV5>>();
-                Some(Self::RequestsV5(res))
+                Some(Self::RequestV5Vec(res))
             }
             // TypeKind::SUBACK => {}
             TypeKind::UNSUBSCRIBE => {
@@ -157,7 +155,7 @@ impl MqttMessageKind {
                 let res = subs.into_iter()
                     .map(|x| MqttMessageV5::Unsubscribe(x))
                     .collect::<Vec<MqttMessageV5>>();
-                Some(Self::RequestsV5(res))
+                Some(Self::RequestV5Vec(res))
             }
             // TypeKind::UNSUBACK => {}
             TypeKind::PINGREQ => { Some(Self::RequestV5(MqttMessageV5::Pingresp(PingrespMessage::default()))) }
