@@ -1,7 +1,7 @@
 use crate::tools::protocol::{MqttProtocolLevel, MQTT_PROTOCOL_NAME, MqttWillFlag, MqttQos, MqttRetain};
 use crate::hex::Property;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Will {
     will_flag: MqttWillFlag,
     will_qos: MqttQos,
@@ -28,7 +28,7 @@ impl Will {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Config {
     client_id: String,
     username: Option<String>,
@@ -165,7 +165,7 @@ impl ConfigBuilder {
                 delay: self.delay.take().unwrap(),
                 max_attempts: self.max_attempts.take().unwrap(),
                 will: self.will.take().unwrap(),
-                properties: None
+                properties: None,
             }
         )
     }

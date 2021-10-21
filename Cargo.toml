@@ -8,6 +8,5 @@ edition = "2018"
 
 [dependencies]
 tokio = { version = "1.0.1", features = ["full"] }
-tokio-tungstenite = "0.15.0"
 lazy_static = "1.4.0"
 num_enum = "0.5.1"
