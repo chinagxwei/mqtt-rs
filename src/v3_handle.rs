@@ -8,18 +8,18 @@ pub async fn match_v3_data(line: &mut Line, base_msg: BaseMessage) -> Option<Mqt
     if let Some(v3) = MqttMessageKind::v3(base_msg) {
         return match (
             v3.is_v3(),
-            handle_v3(line, v3.get_v3()).await,
             v3.is_v3s(),
+            handle_v3(line, v3.get_v3()).await,
             v3.get_v3s()
         ) {
-            (true, Some(res_msg), _, _) => {
+            (true, _, Some(res_msg), _) => {
                 if res_msg.is_disconnect() {
                     Some(MqttMessageKind::Exit(res_msg.as_bytes().to_vec()))
                 } else {
                     Some(MqttMessageKind::Response(res_msg.as_bytes().to_vec()))
                 }
             }
-            (_, _, true, Some(items)) => {
+            (_, true, _, Some(items)) => {
                 let mut res = vec![];
                 for x in items {
                     if let Some(res_msg) = handle_v3(line, Some(x)).await {
