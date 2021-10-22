@@ -588,7 +588,7 @@ impl From<BaseMessage> for PubcompMessage {
 #[derive(Debug, Clone)]
 pub struct DisconnectMessage {
     msg_type: TypeKind,
-    bytes: Vec<u8>,
+    pub bytes: Vec<u8>,
 }
 
 impl MqttMessageType for DisconnectMessage {

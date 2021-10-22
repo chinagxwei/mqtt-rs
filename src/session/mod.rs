@@ -3,13 +3,24 @@ use tokio::sync::mpsc::Sender;
 use crate::message::BaseMessage;
 use crate::subscript::{ClientID, TopicMessage};
 use crate::tools::protocol::{MqttDup, MqttProtocolLevel, MqttQos, MqttRetain, MqttWillFlag};
-use async_trait::async_trait;
 use crate::server::ServerHandleKind;
+use async_trait::async_trait;
 
-pub mod v3_link;
+pub mod v3_server_link;
+pub mod v3_client_link;
+
+#[async_trait]
+pub trait LinkHandle{
+    async fn handle<F, Fut>(&mut self, f: F) -> Option<ServerHandleKind>
+        where
+            F: Fn(Session, BaseMessage) -> Fut + Copy + Clone + Send + Sync + 'static,
+            Fut: Future<Output=Option<ServerHandleKind>> + Send;
+}
 
 pub enum LinkMessage {
-    SocketMessage(Vec<u8>),
+    InputMessage(Vec<u8>),
+    OutputMessage(Vec<u8>),
+    ExitMessage(Vec<u8>),
     HandleMessage(TopicMessage),
 }
 

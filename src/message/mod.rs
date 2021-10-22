@@ -254,7 +254,7 @@ pub struct ConnectMessagePayload {
 #[derive(Debug, Clone)]
 pub struct PingreqMessage {
     msg_type: TypeKind,
-    bytes: Vec<u8>,
+    pub bytes: Vec<u8>,
 }
 
 impl MqttMessageType for PingreqMessage {

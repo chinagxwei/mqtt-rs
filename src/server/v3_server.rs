@@ -9,11 +9,12 @@ use tokio::sync::mpsc::Sender;
 use crate::message::{BaseMessage, MqttMessageKind};
 use crate::message::v3::{SubackMessage, DisconnectMessage, MqttMessageV3, PubackMessage, PublishMessage, SubscribeMessage, UnsubackMessage, UnsubscribeMessage};
 use crate::server::ServerHandleKind;
-use crate::session::v3_link::Link;
+use crate::session::v3_server_link::Link;
 use crate::session::{LinkMessage, Session};
 use crate::subscript::TopicMessage;
 use crate::tools::protocol::MqttQos;
 use crate::SUBSCRIPT;
+use crate::session::LinkHandle;
 
 pub struct MqttServer<F, Fut>
     where
@@ -52,7 +53,7 @@ impl<F, Fut> MqttServer<F, Fut>
                         Ok(n) = stream.read(&mut buf) => {
                             if n != 0 {
                                 println!("length: {}",n);
-                                link.send_message(LinkMessage::SocketMessage(buf[0..n].to_vec())).await;
+                                link.send_message(LinkMessage::InputMessage(buf[0..n].to_vec())).await;
                             }
                             None
                         },
