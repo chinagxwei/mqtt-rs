@@ -1,8 +1,7 @@
 use crate::tools::types::TypeKind;
 use std::convert::{TryFrom, TryInto};
 use crate::tools::protocol::{MqttProtocolLevel, MqttCleanSession, MqttWillFlag, MqttUsernameFlag, MqttPasswordFlag, MqttRetain, MqttQos, MqttDup};
-use crate::message::v3::VariableHeader;
-use crate::message::ConnectMessagePayload;
+use crate::message::{ConnectMessagePayload, VariableHeader};
 use crate::hex::un_pack_property;
 
 ///

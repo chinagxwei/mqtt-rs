@@ -4,10 +4,11 @@ use tokio::sync::mpsc::Sender;
 use mqtt_demo::{SUBSCRIPT};
 use mqtt_demo::message::{BaseMessage, MqttMessageKind};
 use mqtt_demo::message::v3::{SubackMessage, DisconnectMessage, MqttMessageV3, PubackMessage, PublishMessage, SubscribeMessage, UnsubackMessage, UnsubscribeMessage};
-use mqtt_demo::server::{MqttServer, ServerHandleKind};
+use mqtt_demo::server::ServerHandleKind;
+use mqtt_demo::server::v3_server::MqttServer;
+use mqtt_demo::session::{LinkMessage, Session};
 use mqtt_demo::subscript::TopicMessage;
 use mqtt_demo::tools::protocol::MqttQos;
-use mqtt_demo::v3_session::{LinkMessage, Session};
 
 #[tokio::main]
 async fn main() {
@@ -24,9 +25,9 @@ async fn main() {
 
 pub async fn handle_v3_message(mut session: Session, base_msg: BaseMessage) -> Option<ServerHandleKind> {
     if let Some(v3) = MqttMessageKind::v3(base_msg) {
-        return match v3{
+        return match v3 {
             MqttMessageKind::RequestV3(ref msg) => {
-                let res_msg  = handle_v3(&mut session, Some(msg)).await.expect("handle v3 message error");
+                let res_msg = handle_v3(&mut session, Some(msg)).await.expect("handle v3 message error");
                 if res_msg.is_disconnect() {
                     Some(ServerHandleKind::Exit(res_msg.as_bytes().to_vec()))
                 } else {
@@ -50,14 +51,14 @@ pub async fn handle_v3_message(mut session: Session, base_msg: BaseMessage) -> O
 
 async fn handle_v3(session: &mut Session, kind_opt: Option<&MqttMessageV3>) -> Option<MqttMessageV3> {
     if let Some(kind) = kind_opt {
-        match kind {
-            MqttMessageV3::Subscribe(msg) => return handle_v3_subscribe(session, msg).await,
-            MqttMessageV3::Unsubscribe(msg) => return handle_v3_unsubscribe(session, msg).await,
-            MqttMessageV3::Publish(msg) => return handle_v3_publish(session, msg).await,
-            MqttMessageV3::Pingresp(msg) => return Some(MqttMessageV3::Pingresp(msg.clone())),
-            MqttMessageV3::Disconnect(_) => return handle_v3_disconnect(session).await,
-            _ => { return None; }
-        }
+        return match kind {
+            MqttMessageV3::Subscribe(msg) => handle_v3_subscribe(session, msg).await,
+            MqttMessageV3::Unsubscribe(msg) => handle_v3_unsubscribe(session, msg).await,
+            MqttMessageV3::Publish(msg) => handle_v3_publish(session, msg).await,
+            MqttMessageV3::Pingresp(msg) => Some(MqttMessageV3::Pingresp(msg.clone())),
+            MqttMessageV3::Disconnect(_) => handle_v3_disconnect(session).await,
+            _ => None
+        };
     }
     None
 }
@@ -104,8 +105,9 @@ async fn handle_v3_unsubscribe(session: &mut Session, msg: &UnsubscribeMessage) 
 async fn handle_v3_disconnect(session: &mut Session) -> Option<MqttMessageV3> {
     println!("client disconnect");
     if session.is_will_flag() {
-        let topic_msg = session.get_will_message();
-        SUBSCRIPT.broadcast(session.get_will_topic(), &topic_msg).await;
+        if let Some(ref topic_msg) = session.get_will_message(){
+            SUBSCRIPT.broadcast(session.get_will_topic(), topic_msg).await;
+        }
     }
     SUBSCRIPT.exit(session.get_client_id()).await;
     return Some(MqttMessageV3::Disconnect(DisconnectMessage::default()));

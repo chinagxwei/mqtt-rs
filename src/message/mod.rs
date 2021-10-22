@@ -5,7 +5,7 @@ use crate::message::v3::{
     PubackMessage, PubcompMessage, PublishMessage, PubrecMessage, PubrelMessage,
     SubackMessage, SubscribeMessage, UnsubackMessage, UnsubscribeMessage,
 };
-use crate::tools::protocol::{MqttProtocolLevel, MqttDup, MqttQos, MqttRetain};
+use crate::tools::protocol::{MqttProtocolLevel, MqttDup, MqttQos, MqttRetain, MqttCleanSession, MqttWillFlag, MqttPasswordFlag, MqttUsernameFlag};
 use crate::hex::PropertyItem;
 use crate::tools::pack_tool::pack_header;
 use crate::packet::v3_unpacket;
@@ -167,11 +167,11 @@ impl MqttMessageKind {
     }
 }
 
-pub trait MqttMessage {
+pub trait MqttMessageType {
     fn get_message_type(&self) -> TypeKind;
 }
 
-pub trait MqttBytesMessage: MqttMessage {
+pub trait MqttBytesMessage: MqttMessageType {
     fn as_bytes(&self) -> &[u8];
 }
 
@@ -184,7 +184,7 @@ pub struct BaseMessage {
     pub bytes: Vec<u8>,
 }
 
-impl MqttMessage for BaseMessage {
+impl MqttMessageType for BaseMessage {
     fn get_message_type(&self) -> TypeKind {
         self.msg_type
     }
@@ -257,7 +257,7 @@ pub struct PingreqMessage {
     bytes: Vec<u8>,
 }
 
-impl MqttMessage for PingreqMessage {
+impl MqttMessageType for PingreqMessage {
     fn get_message_type(&self) -> TypeKind {
         self.msg_type
     }
@@ -290,7 +290,7 @@ pub struct PingrespMessage {
     bytes: Vec<u8>,
 }
 
-impl MqttMessage for PingrespMessage {
+impl MqttMessageType for PingrespMessage {
     fn get_message_type(&self) -> TypeKind {
         self.msg_type
     }
@@ -315,4 +315,23 @@ impl Default for PingrespMessage {
             bytes: pack_header(TypeKind::PINGRESP, 0),
         }
     }
+}
+
+pub struct VariableHeader {
+    pub protocol_name: Option<String>,
+    pub keep_alive: Option<u16>,
+    pub protocol_level: Option<MqttProtocolLevel>,
+    pub clean_session: Option<MqttCleanSession>,
+    pub will_flag: Option<MqttWillFlag>,
+    pub will_qos: Option<MqttQos>,
+    pub will_retain: Option<MqttRetain>,
+    pub password_flag: Option<MqttPasswordFlag>,
+    pub username_flag: Option<MqttUsernameFlag>,
+}
+
+pub trait WillField {
+    fn topic_str(&self) -> Option<&String>;
+    fn message_str(&self) -> Option<&String>;
+    fn username_str(&self) -> Option<&String>;
+    fn password_str(&self) -> Option<&String>;
 }

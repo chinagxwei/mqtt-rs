@@ -3,8 +3,10 @@ use std::sync::Arc;
 use tokio::sync::mpsc::Sender;
 
 use tokio::sync::Mutex;
+use crate::message::v3;
 use crate::message::v3::PublishMessage;
-use crate::v3_session::LinkMessage;
+use crate::session::LinkMessage;
+use crate::tools::protocol::{MqttDup, MqttQos, MqttRetain};
 
 #[derive(Debug, Clone, Eq, Hash)]
 pub struct ClientID(pub String);
@@ -47,7 +49,22 @@ impl PartialEq for ClientID {
 pub enum TopicMessage {
     ContentV3(ClientID, crate::message::v3::PublishMessage),
     ContentV5(ClientID, crate::message::v5::PublishMessage),
-    Will(PublishMessage),
+    WillV3(crate::message::v3::PublishMessage),
+    WillV5(crate::message::v5::PublishMessage),
+}
+
+impl TopicMessage {
+    pub fn generate_v3_topic_message(client_id: ClientID, will_qos: MqttQos, will_retain: MqttRetain, will_topic: String, will_message: String) -> TopicMessage {
+        let msg = v3::PublishMessage::new(
+            will_qos,
+            MqttDup::Disable,
+            will_retain,
+            will_topic,
+            0,
+            will_message,
+        );
+        TopicMessage::ContentV3(client_id, msg)
+    }
 }
 
 #[derive(Debug)]

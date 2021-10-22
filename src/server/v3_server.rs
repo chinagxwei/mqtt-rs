@@ -4,18 +4,16 @@ use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::str::FromStr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::mpsc;
 use tokio::sync::mpsc::Sender;
 use crate::message::{BaseMessage, MqttMessageKind};
-use crate::v3_session::{Link, LinkMessage, Session};
 use crate::message::v3::{SubackMessage, DisconnectMessage, MqttMessageV3, PubackMessage, PublishMessage, SubscribeMessage, UnsubackMessage, UnsubscribeMessage};
+use crate::server::ServerHandleKind;
+use crate::session::v3_link::Link;
+use crate::session::{LinkMessage, Session};
 use crate::subscript::TopicMessage;
 use crate::tools::protocol::MqttQos;
 use crate::SUBSCRIPT;
-
-pub enum ServerHandleKind{
-    Response(Vec<u8>),
-    Exit(Vec<u8>),
-}
 
 pub struct MqttServer<F, Fut>
     where
@@ -29,7 +27,7 @@ pub struct MqttServer<F, Fut>
 impl<F, Fut> MqttServer<F, Fut>
     where
         F: Fn(Session, BaseMessage) -> Fut + Copy + Clone + Send + Sync + 'static,
-        Fut: Future<Output=Option<ServerHandleKind>> + Send
+        Fut: Future<Output=Option<ServerHandleKind>> + Send,
 {
     pub fn new(addr: SocketAddr) -> MqttServer<F, Fut> {
         MqttServer { addr, handle: None }
@@ -45,6 +43,7 @@ impl<F, Fut> MqttServer<F, Fut>
         let listener: TcpListener = TcpListener::bind(self.addr).await.expect("listener error");
         while let Ok((mut stream, _)) = listener.accept().await {
             let handle_message = **self.handle.as_ref().unwrap();
+
             tokio::spawn(async move {
                 let mut buf = [0; 1024];
                 let mut link = Link::new();

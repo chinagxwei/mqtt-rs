@@ -7,7 +7,7 @@ use crate::tools::pack_tool::{pack_header};
 use crate::tools::config::Config;
 use crate::hex::reason_code::ReasonCodes::V3;
 use crate::packet::{v3_packet, v3_unpacket};
-use crate::message::{MqttBytesMessage, MqttMessage, BaseMessage, ConnectMessagePayload, PingreqMessage, PingrespMessage};
+use crate::message::{MqttBytesMessage, MqttMessageType, BaseMessage, ConnectMessagePayload, PingreqMessage, PingrespMessage, WillField};
 
 #[derive(Debug, Clone)]
 pub enum MqttMessageV3 {
@@ -104,18 +104,6 @@ impl MqttMessageV3 {
     }
 }
 
-pub struct VariableHeader {
-    pub protocol_name: Option<String>,
-    pub keep_alive: Option<u16>,
-    pub protocol_level: Option<MqttProtocolLevel>,
-    pub clean_session: Option<MqttCleanSession>,
-    pub will_flag: Option<MqttWillFlag>,
-    pub will_qos: Option<MqttQos>,
-    pub will_retain: Option<MqttRetain>,
-    pub password_flag: Option<MqttPasswordFlag>,
-    pub username_flag: Option<MqttUsernameFlag>,
-}
-
 #[derive(Debug, Clone)]
 pub struct ConnectMessage {
     pub msg_type: TypeKind,
@@ -130,7 +118,7 @@ pub struct ConnectMessage {
     pub bytes: Option<Vec<u8>>,
 }
 
-impl MqttMessage for ConnectMessage {
+impl MqttMessageType for ConnectMessage {
     fn get_message_type(&self) -> TypeKind {
         self.msg_type
     }
@@ -175,6 +163,24 @@ impl From<BaseMessage> for ConnectMessage {
     }
 }
 
+impl WillField for ConnectMessage {
+    fn topic_str(&self) -> Option<&String> {
+        self.payload.will_topic.as_ref()
+    }
+
+    fn message_str(&self) -> Option<&String> {
+        self.payload.will_message.as_ref()
+    }
+
+    fn username_str(&self) -> Option<&String> {
+        self.payload.user_name.as_ref()
+    }
+
+    fn password_str(&self) -> Option<&String> {
+        self.payload.password.as_ref()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ConnackMessage {
     pub msg_type: TypeKind,
@@ -183,7 +189,7 @@ pub struct ConnackMessage {
     pub bytes: Vec<u8>,
 }
 
-impl MqttMessage for ConnackMessage {
+impl MqttMessageType for ConnackMessage {
     fn get_message_type(&self) -> TypeKind {
         self.msg_type
     }
@@ -232,7 +238,7 @@ pub struct SubscribeMessage {
     pub bytes: Option<Vec<u8>>,
 }
 
-impl MqttMessage for SubscribeMessage {
+impl MqttMessageType for SubscribeMessage {
     fn get_message_type(&self) -> TypeKind {
         self.msg_type
     }
@@ -266,7 +272,7 @@ pub struct SubackMessage {
     pub bytes: Option<Vec<u8>>,
 }
 
-impl MqttMessage for SubackMessage {
+impl MqttMessageType for SubackMessage {
     fn get_message_type(&self) -> TypeKind {
         self.msg_type
     }
@@ -322,7 +328,7 @@ pub struct UnsubscribeMessage {
     pub bytes: Option<Vec<u8>>,
 }
 
-impl MqttMessage for UnsubscribeMessage {
+impl MqttMessageType for UnsubscribeMessage {
     fn get_message_type(&self) -> TypeKind {
         self.msg_type
     }
@@ -354,7 +360,7 @@ pub struct UnsubackMessage {
     pub bytes: Option<Vec<u8>>,
 }
 
-impl MqttMessage for UnsubackMessage {
+impl MqttMessageType for UnsubackMessage {
     fn get_message_type(&self) -> TypeKind {
         self.msg_type
     }
@@ -396,7 +402,7 @@ pub struct PublishMessage {
     pub bytes: Option<Vec<u8>>,
 }
 
-impl MqttMessage for PublishMessage {
+impl MqttMessageType for PublishMessage {
     fn get_message_type(&self) -> TypeKind {
         self.msg_type
     }
@@ -438,7 +444,7 @@ pub struct PubackMessage {
     pub bytes: Option<Vec<u8>>,
 }
 
-impl MqttMessage for PubackMessage {
+impl MqttMessageType for PubackMessage {
     fn get_message_type(&self) -> TypeKind {
         self.msg_type
     }
@@ -475,7 +481,7 @@ pub struct PubrecMessage {
     pub bytes: Option<Vec<u8>>,
 }
 
-impl MqttMessage for PubrecMessage {
+impl MqttMessageType for PubrecMessage {
     fn get_message_type(&self) -> TypeKind {
         self.msg_type
     }
@@ -512,7 +518,7 @@ pub struct PubrelMessage {
     pub bytes: Option<Vec<u8>>,
 }
 
-impl MqttMessage for PubrelMessage {
+impl MqttMessageType for PubrelMessage {
     fn get_message_type(&self) -> TypeKind {
         self.msg_type
     }
@@ -549,7 +555,7 @@ pub struct PubcompMessage {
     pub bytes: Option<Vec<u8>>,
 }
 
-impl MqttMessage for PubcompMessage {
+impl MqttMessageType for PubcompMessage {
     fn get_message_type(&self) -> TypeKind {
         self.msg_type
     }
@@ -585,7 +591,7 @@ pub struct DisconnectMessage {
     bytes: Vec<u8>,
 }
 
-impl MqttMessage for DisconnectMessage {
+impl MqttMessageType for DisconnectMessage {
     fn get_message_type(&self) -> TypeKind {
         self.msg_type
     }

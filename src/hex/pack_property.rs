@@ -1,5 +1,4 @@
 use crate::hex::{PropertyItem, Property};
-use crate::message::v5::ConnectMessage;
 use crate::tools::types::TypeKind;
 
 pub fn connect(data: &Vec<PropertyItem>) -> Vec<u8> {

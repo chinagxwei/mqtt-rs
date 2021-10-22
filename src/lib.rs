@@ -8,9 +8,9 @@ pub mod tools;
 pub mod packet;
 pub mod message;
 pub mod server;
-pub mod v3_session;
 pub mod client;
 pub mod subscript;
+pub mod session;
 
 
 lazy_static! {
