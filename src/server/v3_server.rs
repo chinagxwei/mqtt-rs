@@ -39,7 +39,7 @@ impl<F, Fut> MqttServer<F, Fut>
         MqttServer { addr, handle: None, option: None }
     }
 
-    pub fn set_option(mut self, option: MqttServerOption) -> MqttServer<F, Fut> {
+    pub fn option(mut self, option: MqttServerOption) -> MqttServer<F, Fut> {
         self.option = Some(option);
         self
     }
