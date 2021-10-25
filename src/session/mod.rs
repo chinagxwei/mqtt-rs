@@ -93,7 +93,17 @@ impl Session {
                     )
                 )
             }
-            MqttProtocolLevel::Level5 => None,
+            MqttProtocolLevel::Level5 => {
+                Some(
+                    TopicMessage::generate_v5_topic_message(
+                        self.get_client_id().clone(),
+                        self.will_qos.unwrap(),
+                        self.will_retain.unwrap(),
+                        self.will_topic.as_ref().unwrap().to_owned(),
+                        self.will_message.as_ref().unwrap().to_owned(),
+                    )
+                )
+            }
             _ => None
         };
     }

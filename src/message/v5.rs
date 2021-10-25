@@ -5,9 +5,6 @@ use crate::message::{ConnectMessagePayload, BaseMessage, MqttMessageType, MqttBy
 use crate::packet::{v5_packet, v5_unpacket};
 use crate::hex::reason_code::{ReasonPhrases, ReasonCodeV5};
 
-// pub enum MqttMessageV5 {
-//     Connect(ConnectMessage),
-// }
 
 #[derive(Debug, Clone)]
 pub enum MqttMessageV5 {
@@ -164,6 +161,24 @@ impl From<BaseMessage> for PublishMessage {
     }
 }
 
+impl PublishMessage {
+    pub fn new(qos: MqttQos, dup: MqttDup, retain: MqttRetain, topic: String, message_id: u16, message_body: String, properties: Option<Vec<PropertyItem>>) -> PublishMessage {
+        let mut msg = PublishMessage {
+            msg_type: TypeKind::PUBLISH,
+            message_id,
+            topic,
+            dup,
+            qos,
+            retain,
+            msg_body: message_body,
+            properties,
+            bytes: None,
+        };
+        msg.bytes = Some(v5_packet::publish(&msg));
+        msg
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct SubscribeMessage {
     pub msg_type: TypeKind,
@@ -238,7 +253,7 @@ impl From<BaseMessage> for SubackMessage {
 }
 
 impl From<SubscribeMessage> for SubackMessage {
-    fn from(mut smsg: SubscribeMessage) -> Self {
+    fn from(smsg: SubscribeMessage) -> Self {
         let codes = if (smsg.qos.unwrap() as u32) < 3 {
             smsg.qos.unwrap().as_byte().to_ne_bytes().to_vec()
         } else {
@@ -428,5 +443,4 @@ impl From<BaseMessage> for CommonPayloadMessage {
         v5_unpacket::get_reason_code(base)
     }
 }
-
 

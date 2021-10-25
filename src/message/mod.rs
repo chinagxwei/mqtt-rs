@@ -87,7 +87,7 @@ impl MqttMessageKind {
             TypeKind::PUBREL => { Some(Self::RequestV3(MqttMessageV3::Pubrel(PubrelMessage::from(base_msg)))) }
             TypeKind::PUBCOMP => { Some(Self::RequestV3(MqttMessageV3::Pubcomp(PubcompMessage::from(base_msg)))) }
             TypeKind::SUBSCRIBE => {
-                let mut subs = v3_unpacket::subscribe(base_msg);
+                let subs = v3_unpacket::subscribe(base_msg);
                 let res = subs.into_iter()
                     .map(|x| MqttMessageV3::Subscribe(x))
                     .collect::<Vec<MqttMessageV3>>();
@@ -95,7 +95,7 @@ impl MqttMessageKind {
             }
             TypeKind::SUBACK => { Some(Self::RequestV3(MqttMessageV3::Suback(SubackMessage::from(base_msg)))) }
             TypeKind::UNSUBSCRIBE => {
-                let mut subs = v3_unpacket::unsubscribe(base_msg);
+                let subs = v3_unpacket::unsubscribe(base_msg);
                 let res = subs.into_iter()
                     .map(|x| MqttMessageV3::Unsubscribe(x))
                     .collect::<Vec<MqttMessageV3>>();
@@ -228,7 +228,7 @@ impl MqttMessageType for PingreqMessage {
 }
 
 impl From<BaseMessage> for PingreqMessage {
-    fn from(mut base: BaseMessage) -> Self {
+    fn from(base: BaseMessage) -> Self {
         PingreqMessage { msg_type: base.msg_type, bytes: base.bytes }
     }
 }
@@ -261,7 +261,7 @@ impl MqttMessageType for PingrespMessage {
 }
 
 impl From<BaseMessage> for PingrespMessage {
-    fn from(mut base: BaseMessage) -> Self {
+    fn from(base: BaseMessage) -> Self {
         PingrespMessage { msg_type: base.msg_type, bytes: base.bytes }
     }
 }

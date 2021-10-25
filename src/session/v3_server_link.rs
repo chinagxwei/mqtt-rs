@@ -75,6 +75,21 @@ impl LinkHandle for Link {
                                             connect_msg.payload.will_message.clone().unwrap(),
                                         );
                                     }
+                                    Unsubscribe(msg)=>{
+                                        if SUBSCRIPT.contain(&msg.topic).await {
+                                            if SUBSCRIPT.is_subscript(&msg.topic, self.session.get_client_id()).await {
+                                                SUBSCRIPT.unsubscript(&msg.topic, self.session.get_client_id()).await;
+                                            }
+                                        }
+                                    }
+                                    Disconnect(_) => {
+                                        if self.session.is_will_flag() {
+                                            if let Some(ref topic_msg) = self.session.get_will_message() {
+                                                SUBSCRIPT.broadcast(self.session.get_will_topic(), topic_msg).await;
+                                            }
+                                        }
+                                        SUBSCRIPT.exit(self.session.get_client_id()).await;
+                                    }
                                     _ => {}
                                 }
                             }

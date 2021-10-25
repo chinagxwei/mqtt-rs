@@ -303,7 +303,7 @@ impl SubackMessage {
 }
 
 impl From<SubscribeMessage> for SubackMessage {
-    fn from(mut smsg: SubscribeMessage) -> Self {
+    fn from(smsg: SubscribeMessage) -> Self {
         let codes = if (smsg.qos as u32) < 3 {
             smsg.qos.as_byte().to_ne_bytes().to_vec()
         } else {
@@ -619,7 +619,7 @@ impl Default for DisconnectMessage {
 }
 
 impl From<BaseMessage> for DisconnectMessage {
-    fn from(mut base: BaseMessage) -> Self {
+    fn from(base: BaseMessage) -> Self {
         DisconnectMessage { msg_type: base.msg_type, bytes: base.bytes }
     }
 }

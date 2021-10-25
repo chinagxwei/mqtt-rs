@@ -3,8 +3,9 @@ use std::sync::Arc;
 use tokio::sync::mpsc::Sender;
 
 use tokio::sync::Mutex;
+use crate::hex::{Property, PropertyItem, PropertyValue};
 use crate::message::v3;
-use crate::message::v3::PublishMessage;
+use crate::message::v5;
 use crate::session::LinkMessage;
 use crate::tools::protocol::{MqttDup, MqttQos, MqttRetain};
 
@@ -64,6 +65,22 @@ impl TopicMessage {
             will_message,
         );
         TopicMessage::ContentV3(client_id, msg)
+    }
+
+    pub fn generate_v5_topic_message(client_id: ClientID, will_qos: MqttQos, will_retain: MqttRetain, will_topic: String, will_message: String) -> TopicMessage {
+        let msg = v5::PublishMessage::new(
+            will_qos,
+            MqttDup::Disable,
+            will_retain,
+            will_topic,
+            0,
+            will_message,
+            Some(vec![
+                PropertyItem(Property::TopicAlias, PropertyValue::Byte(1)),
+                PropertyItem(Property::MessageExpiryInterval, PropertyValue::Byte(12)),
+            ]),
+        );
+        TopicMessage::ContentV5(client_id, msg)
     }
 }
 
