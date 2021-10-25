@@ -25,7 +25,7 @@ impl Link {
     }
 
     pub async fn send_message(&self, msg: LinkMessage) {
-        self.session().sender.send(msg).await;
+        self.session.sender.send(msg).await;
     }
 }
 

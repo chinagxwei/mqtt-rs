@@ -1,7 +1,7 @@
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::str::FromStr;
 use mqtt_demo::message::MqttMessageKind;
-use mqtt_demo::message::v3::{SubackMessage, DisconnectMessage, MqttMessageV3, PubackMessage, PublishMessage, SubscribeMessage, UnsubackMessage};
+use mqtt_demo::message::v3::{SubackMessage, DisconnectMessage, MqttMessageV3, PubackMessage, UnsubackMessage};
 use mqtt_demo::server::ServerHandleKind;
 use mqtt_demo::server::v3_server::MqttServer;
 use mqtt_demo::session::Session;
@@ -49,28 +49,24 @@ pub async fn handle_v3_message(session: Session, v3_kind: Option<MqttMessageKind
 async fn handle_v3(session: &Session, kind_opt: Option<&MqttMessageV3>) -> Option<MqttMessageV3> {
     if let Some(kind) = kind_opt {
         return match kind {
-            MqttMessageV3::Subscribe(msg) => handle_v3_subscribe(session, msg).await,
+            MqttMessageV3::Subscribe(msg) => {
+                session.subscribe_topic(&msg.topic).await;
+                let sm = SubackMessage::from(msg.clone());
+                println!("{:?}", sm);
+                return Some(MqttMessageV3::Suback(sm));
+            },
             MqttMessageV3::Unsubscribe(msg) => Some(MqttMessageV3::Unsuback(UnsubackMessage::new(msg.message_id))),
-            MqttMessageV3::Publish(msg) => handle_v3_publish(session, msg).await,
+            MqttMessageV3::Publish(msg) => {
+                session.send_message(msg).await;
+                if msg.qos == MqttQos::Qos1 {
+                    return Some(MqttMessageV3::Puback(PubackMessage::new(msg.message_id)));
+                }
+                return None;
+            },
             MqttMessageV3::Pingresp(msg) => Some(MqttMessageV3::Pingresp(msg.clone())),
             MqttMessageV3::Disconnect(_) => Some(MqttMessageV3::Disconnect(DisconnectMessage::default())),
             _ => None
         };
     }
     None
-}
-
-async fn handle_v3_publish(session: &Session, msg: &PublishMessage) -> Option<MqttMessageV3> {
-    session.send_message(msg).await;
-    if msg.qos == MqttQos::Qos1 {
-        return Some(MqttMessageV3::Puback(PubackMessage::new(msg.message_id)));
-    }
-    return None;
-}
-
-async fn handle_v3_subscribe(session: &Session, msg: &SubscribeMessage) -> Option<MqttMessageV3> {
-    session.subscribe_topic(&msg.topic).await;
-    let sm = SubackMessage::from(msg.clone());
-    println!("{:?}", sm);
-    return Some(MqttMessageV3::Suback(sm));
 }

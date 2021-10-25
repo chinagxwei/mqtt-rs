@@ -62,8 +62,8 @@ impl<F, Fut> MqttClient<F, Fut>
         let socket = TcpSocket::new_v4().unwrap();
         let mut stream = socket.connect(self.address).await.unwrap();
         let msg = ConnectMessage::new(MqttCleanSession::Enable, self.config.clone());
-        stream.write(msg.as_bytes());
-        stream.flush();
+        stream.write_all(msg.as_bytes()).await;
+        stream.flush().await;
         stream
     }
 

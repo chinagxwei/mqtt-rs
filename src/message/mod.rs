@@ -192,14 +192,14 @@ impl MqttMessageType for BaseMessage {
 
 impl From<Vec<u8>> for BaseMessage {
     fn from(data: Vec<u8>) -> Self {
-        let (mut r#type2, retain, qos, dup, _last_bytes) = get_type(data.as_slice());
+        let (r#type2, retain, qos, dup, _last_bytes) = get_type(data.as_slice());
         BaseMessage { msg_type: r#type2.unwrap(), dup, qos, retain, bytes: data }
     }
 }
 
 impl From<&[u8]> for BaseMessage {
     fn from(data: &[u8]) -> Self {
-        let (mut r#type2, retain, qos, dup, _last_bytes) = get_type(data);
+        let (r#type2, retain, qos, dup, _last_bytes) = get_type(data);
         BaseMessage { msg_type: r#type2.unwrap(), dup, qos, retain, bytes: data.to_vec() }
     }
 }
