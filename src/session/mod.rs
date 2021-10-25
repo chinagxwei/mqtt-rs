@@ -114,13 +114,13 @@ impl Session {
         self.sender.clone()
     }
 
-    pub async fn send_message(&self, msg: &PublishMessage) {
+    pub async fn publish(&self, msg: &PublishMessage) {
         let topic_msg = TopicMessage::ContentV3(self.get_client_id().to_owned(), msg.clone());
         println!("topic: {:?}", topic_msg);
         SUBSCRIPT.broadcast(&msg.topic, &topic_msg).await;
     }
 
-    pub async fn subscribe_topic(&self, topic: &String) {
+    pub async fn subscribe(&self, topic: &String) {
         println!("{:?}", topic);
         if SUBSCRIPT.contain(topic).await {
             SUBSCRIPT.subscript(topic, self.get_client_id(), self.get_sender());

@@ -50,14 +50,14 @@ async fn handle_v3(session: &Session, kind_opt: Option<&MqttMessageV3>) -> Optio
     if let Some(kind) = kind_opt {
         return match kind {
             MqttMessageV3::Subscribe(msg) => {
-                session.subscribe_topic(&msg.topic).await;
+                session.subscribe(&msg.topic).await;
                 let sm = SubackMessage::from(msg.clone());
                 println!("{:?}", sm);
                 return Some(MqttMessageV3::Suback(sm));
             },
             MqttMessageV3::Unsubscribe(msg) => Some(MqttMessageV3::Unsuback(UnsubackMessage::new(msg.message_id))),
             MqttMessageV3::Publish(msg) => {
-                session.send_message(msg).await;
+                session.publish(msg).await;
                 if msg.qos == MqttQos::Qos1 {
                     return Some(MqttMessageV3::Puback(PubackMessage::new(msg.message_id)));
                 }
