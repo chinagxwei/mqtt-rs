@@ -3,6 +3,7 @@ pub mod pack_tool;
 pub mod config;
 pub mod protocol;
 pub mod types;
+pub mod tls;
 
 
 #[cfg(test)]

@@ -8,6 +8,8 @@ edition = "2018"
 
 [dependencies]
 tokio = { version = "1.0.1", features = ["full"] }
+tokio-rustls = "0.23.0"
+rustls-pemfile = "0.2.1"
 lazy_static = "1.4.0"
 num_enum = "0.5.1"
 async-trait = "0.1.51"
