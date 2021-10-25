@@ -61,6 +61,7 @@ impl<F, Fut> MqttServer<F, Fut>
     }
 
     pub async fn start_with_tls(&self) {
+        if self.handle.is_none() { return; }
         if let Some(acceptor) = self.acceptor() {
             let listener: TcpListener = TcpListener::bind(self.addr).await.expect("listener error");
             while let Ok((mut stream, _)) = listener.accept().await {
