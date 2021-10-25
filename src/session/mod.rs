@@ -5,6 +5,8 @@ use crate::subscript::{ClientID, TopicMessage};
 use crate::tools::protocol::{MqttDup, MqttProtocolLevel, MqttQos, MqttRetain, MqttWillFlag};
 use crate::server::ServerHandleKind;
 use async_trait::async_trait;
+use crate::message::v3::PublishMessage;
+use crate::SUBSCRIPT;
 
 pub mod v3_server_link;
 pub mod v3_client_link;
@@ -110,5 +112,24 @@ impl Session {
 
     pub fn get_sender(&self) -> Sender<LinkMessage> {
         self.sender.clone()
+    }
+
+    pub async fn send_message(&self, msg: &PublishMessage) {
+        let topic_msg = TopicMessage::ContentV3(self.get_client_id().to_owned(), msg.clone());
+        println!("topic: {:?}", topic_msg);
+        SUBSCRIPT.broadcast(&msg.topic, &topic_msg).await;
+    }
+
+    pub async fn subscribe_topic(&self, topic: &String) {
+        println!("{:?}", topic);
+        if SUBSCRIPT.contain(topic).await {
+            SUBSCRIPT.subscript(topic, self.get_client_id(), self.get_sender());
+        } else {
+            SUBSCRIPT.new_subscript(topic, self.get_client_id(), self.get_sender()).await;
+        }
+        println!("broadcast topic len: {}", SUBSCRIPT.len().await);
+        println!("broadcast topic list: {:?}", SUBSCRIPT.topics().await);
+        println!("broadcast client len: {:?}", SUBSCRIPT.client_len(topic).await);
+        println!("broadcast client list: {:?}", SUBSCRIPT.clients(topic).await);
     }
 }
