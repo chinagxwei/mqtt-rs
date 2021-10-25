@@ -2,7 +2,7 @@ use std::future::Future;
 use async_trait::async_trait;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::Receiver;
-use crate::message::{BaseMessage, PingreqMessage};
+use crate::message::{BaseMessage, MqttMessageKind, PingreqMessage};
 use crate::message::v3::DisconnectMessage;
 use crate::server::ServerHandleKind;
 use crate::session::{LinkHandle, LinkMessage, Session};
@@ -33,7 +33,7 @@ impl Link {
 impl LinkHandle for Link {
     async fn handle<F, Fut>(&mut self, f: F) -> Option<ServerHandleKind>
         where
-            F: Fn(Session, BaseMessage) -> Fut + Copy + Clone + Send + Sync + 'static,
+            F: Fn(Session, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
             Fut: Future<Output=Option<ServerHandleKind>> + Send
     {
         return match self.receiver.recv().await {
@@ -41,7 +41,8 @@ impl LinkHandle for Link {
                 match msg {
                     LinkMessage::InputMessage(data) => {
                         let base_msg = BaseMessage::from(data);
-                        f(self.session.clone(), base_msg).await
+                        let v3_request = MqttMessageKind::v3(base_msg);
+                        f(self.session.clone(), v3_request).await
                     }
                     LinkMessage::OutputMessage(data) => {
                         Some(ServerHandleKind::Response(data))

@@ -1,4 +1,4 @@
-use crate::message::{PingreqMessage, v3};
+use crate::message::{PingreqMessage, PingrespMessage, v3};
 use crate::message::v3::MqttMessageV3::*;
 use crate::message::v3::{
     ConnackMessage, DisconnectMessage, MqttMessageV3, PubackMessage, ConnectMessage,
@@ -6,7 +6,7 @@ use crate::message::v3::{
 };
 use crate::message::MqttMessageKind::*;
 use crate::message::{
-    BaseConnect, BaseMessage, MqttBytesMessage, MqttMessageKind, MqttMessageType,
+    BaseMessage, MqttBytesMessage, MqttMessageKind, MqttMessageType,
 };
 use crate::session::{LinkHandle, LinkMessage, Session};
 use crate::subscript::{ClientID, TopicMessage};
@@ -49,31 +49,40 @@ impl Link {
 impl LinkHandle for Link {
     async fn handle<F, Fut>(&mut self, f: F) -> Option<ServerHandleKind>
         where
-            F: Fn(Session, BaseMessage) -> Fut + Copy + Clone + Send + Sync + 'static,
+            F: Fn(Session, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
             Fut: Future<Output=Option<ServerHandleKind>> + Send
     {
         return match self.receiver.recv().await {
             Some(msg) => return match msg {
                 LinkMessage::InputMessage(msg) => {
                     let base_msg = BaseMessage::from(msg);
-                    if base_msg.get_message_type() == TypeKind::CONNECT {
-                        let connect = BaseConnect::from(&base_msg);
-                        self.session.init_protocol(
-                            connect.get_protocol_name(),
-                            connect.get_protocol_level(),
-                        );
-                        let connect_msg = ConnectMessage::from(base_msg);
-                        self.session.init(
-                            connect_msg.payload.client_id.into(),
-                            connect_msg.will_flag,
-                            connect_msg.will_qos,
-                            connect_msg.will_retain,
-                            connect_msg.payload.will_topic.clone().unwrap(),
-                            connect_msg.payload.will_message.clone().unwrap(),
-                        );
-                        return Some(ServerHandleKind::Response(ConnackMessage::default().bytes));
+                    let v3_request = MqttMessageKind::v3(base_msg);
+                    if let Some(kind) = v3_request.as_ref() {
+                        match kind {
+                            RequestV3(v3) => {
+                                match v3 {
+                                    Connect(connect_msg) => {
+                                        self.session.init_protocol(
+                                            connect_msg.protocol_name.clone(),
+                                            connect_msg.protocol_level.clone(),
+                                        );
+                                        self.session.init(
+                                            connect_msg.payload.client_id.clone().into(),
+                                            connect_msg.will_flag,
+                                            connect_msg.will_qos,
+                                            connect_msg.will_retain,
+                                            connect_msg.payload.will_topic.clone().unwrap(),
+                                            connect_msg.payload.will_message.clone().unwrap(),
+                                        );
+                                    }
+                                    _ => {}
+                                }
+                            }
+                            _ => {}
+                        }
                     }
-                    f(self.session.clone(), base_msg).await
+
+                    f(self.session.clone(), v3_request).await
                 }
                 LinkMessage::HandleMessage(msg) => {
                     match msg {
@@ -96,8 +105,8 @@ impl LinkHandle for Link {
                 }
                 _ => None
             },
-             _=> None
-        }
+            _ => None
+        };
     }
 }
 

@@ -18,7 +18,7 @@ use crate::session::LinkHandle;
 
 pub struct MqttServer<F, Fut>
     where
-        F: Fn(Session, BaseMessage) -> Fut + Copy + Clone + Send + Sync + 'static,
+        F: Fn(Session, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
         Fut: Future<Output=Option<ServerHandleKind>> + Send,
 {
     addr: SocketAddr,
@@ -27,7 +27,7 @@ pub struct MqttServer<F, Fut>
 
 impl<F, Fut> MqttServer<F, Fut>
     where
-        F: Fn(Session, BaseMessage) -> Fut + Copy + Clone + Send + Sync + 'static,
+        F: Fn(Session, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
         Fut: Future<Output=Option<ServerHandleKind>> + Send,
 {
     pub fn new(addr: SocketAddr) -> MqttServer<F, Fut> {

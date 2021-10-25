@@ -93,7 +93,7 @@ impl MqttMessageKind {
                     .collect::<Vec<MqttMessageV3>>();
                 Some(Self::RequestV3Vec(res))
             }
-            // TypeKind::SUBACK => { Some(Self::RequestV3(MqttMessageV3::Suback(SubackMessage::from(base_msg)))) }
+            TypeKind::SUBACK => { Some(Self::RequestV3(MqttMessageV3::Suback(SubackMessage::from(base_msg)))) }
             TypeKind::UNSUBSCRIBE => {
                 let mut subs = v3_unpacket::unsubscribe(base_msg);
                 let res = subs.into_iter()
@@ -204,42 +204,6 @@ impl From<&[u8]> for BaseMessage {
     }
 }
 
-#[derive(Debug)]
-pub struct BaseConnect {
-    msg_type: TypeKind,
-    protocol_name: String,
-    protocol_level: MqttProtocolLevel,
-}
-
-impl BaseConnect {
-    pub fn get_message_type(&self) -> TypeKind {
-        self.msg_type
-    }
-
-    pub fn get_protocol_level(&self) -> MqttProtocolLevel {
-        self.protocol_level
-    }
-
-    pub fn get_protocol_name(&self) -> String {
-        self.protocol_name.to_owned()
-    }
-}
-
-impl From<&BaseMessage> for BaseConnect {
-    fn from(data: &BaseMessage) -> Self {
-        let message_bytes = data.bytes.get(2..).unwrap();
-        let (
-            mut protocol_name,
-            mut protocol_level
-        ) = get_protocol_name_and_version(message_bytes);
-        BaseConnect {
-            msg_type: data.msg_type,
-            protocol_name: protocol_name.unwrap(),
-            protocol_level: protocol_level.unwrap(),
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct ConnectMessagePayload {
     pub client_id: String,
@@ -287,7 +251,7 @@ impl Default for PingreqMessage {
 #[derive(Debug, Clone)]
 pub struct PingrespMessage {
     msg_type: TypeKind,
-    bytes: Vec<u8>,
+    pub bytes: Vec<u8>,
 }
 
 impl MqttMessageType for PingrespMessage {

@@ -320,6 +320,12 @@ impl From<SubscribeMessage> for SubackMessage {
     }
 }
 
+impl From<BaseMessage> for SubackMessage {
+    fn from(base: BaseMessage) -> Self {
+        v3_unpacket::suback(base)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct UnsubscribeMessage {
     pub msg_type: TypeKind,

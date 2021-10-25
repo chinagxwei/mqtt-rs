@@ -23,8 +23,8 @@ async fn main() {
         .await;
 }
 
-pub async fn handle_v3_message(mut session: Session, base_msg: BaseMessage) -> Option<ServerHandleKind> {
-    if let Some(v3) = MqttMessageKind::v3(base_msg) {
+pub async fn handle_v3_message(mut session: Session, v3_kind: Option<MqttMessageKind>) -> Option<ServerHandleKind> {
+    if let Some(v3) = v3_kind {
         return match v3 {
             MqttMessageKind::RequestV3(ref msg) => {
                 let res_msg = handle_v3(&mut session, Some(msg)).await.expect("handle v3 message error");
@@ -105,7 +105,7 @@ async fn handle_v3_unsubscribe(session: &mut Session, msg: &UnsubscribeMessage) 
 async fn handle_v3_disconnect(session: &mut Session) -> Option<MqttMessageV3> {
     println!("client disconnect");
     if session.is_will_flag() {
-        if let Some(ref topic_msg) = session.get_will_message(){
+        if let Some(ref topic_msg) = session.get_will_message() {
             SUBSCRIPT.broadcast(session.get_will_topic(), topic_msg).await;
         }
     }

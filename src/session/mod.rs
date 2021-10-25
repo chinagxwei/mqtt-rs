@@ -1,6 +1,6 @@
 use std::future::Future;
 use tokio::sync::mpsc::Sender;
-use crate::message::BaseMessage;
+use crate::message::{BaseMessage, MqttMessageKind};
 use crate::subscript::{ClientID, TopicMessage};
 use crate::tools::protocol::{MqttDup, MqttProtocolLevel, MqttQos, MqttRetain, MqttWillFlag};
 use crate::server::ServerHandleKind;
@@ -10,10 +10,10 @@ pub mod v3_server_link;
 pub mod v3_client_link;
 
 #[async_trait]
-pub trait LinkHandle{
+pub trait LinkHandle {
     async fn handle<F, Fut>(&mut self, f: F) -> Option<ServerHandleKind>
         where
-            F: Fn(Session, BaseMessage) -> Fut + Copy + Clone + Send + Sync + 'static,
+            F: Fn(Session, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
             Fut: Future<Output=Option<ServerHandleKind>> + Send;
 }
 

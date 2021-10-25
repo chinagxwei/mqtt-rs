@@ -6,7 +6,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpSocket, TcpStream};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::Sender;
-use crate::message::{BaseMessage, MqttBytesMessage, PingreqMessage};
+use crate::message::{BaseMessage, MqttBytesMessage, MqttMessageKind, PingreqMessage};
 use crate::message::v3::{ConnectMessage, DisconnectMessage, PublishMessage, SubscribeMessage, UnsubscribeMessage};
 use crate::server::ServerHandleKind;
 use crate::session::{LinkHandle, LinkMessage, Session};
@@ -17,7 +17,7 @@ use crate::tools::protocol::{MqttCleanSession, MqttQos};
 
 struct MqttClient<F, Fut>
     where
-        F: Fn(Session, BaseMessage) -> Fut + Copy + Clone + Send + Sync + 'static,
+        F: Fn(Session, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
         Fut: Future<Output=Option<ServerHandleKind>> + Send,
 {
     config: Config,
@@ -28,7 +28,7 @@ struct MqttClient<F, Fut>
 
 impl<F, Fut> MqttClient<F, Fut>
     where
-        F: Fn(Session, BaseMessage) -> Fut + Copy + Clone + Send + Sync + 'static,
+        F: Fn(Session, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
         Fut: Future<Output=Option<ServerHandleKind>> + Send,
 {
     pub fn new(config: Config, address: SocketAddr) -> MqttClient<F, Fut> {
