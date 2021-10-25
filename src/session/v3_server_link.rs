@@ -41,7 +41,10 @@ impl Link {
     }
 
     pub async fn send_message(&self, msg: LinkMessage) {
-        self.session.get_sender().send(msg).await;
+        // self.session.get_sender().send(msg).await;
+        if let Err(e) = self.session.sender.send(msg).await{
+            println!("failed to send message; err = {:?}", e);
+        }
     }
 }
 

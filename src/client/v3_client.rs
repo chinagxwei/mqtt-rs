@@ -62,8 +62,12 @@ impl<F, Fut> MqttClient<F, Fut>
         let socket = TcpSocket::new_v4().unwrap();
         let mut stream = socket.connect(self.address).await.unwrap();
         let msg = ConnectMessage::new(MqttCleanSession::Enable, self.config.clone());
-        stream.write_all(msg.as_bytes()).await;
-        stream.flush().await;
+        if let Err(e) = stream.write_all(msg.as_bytes()).await {
+            println!("failed to write message; err = {:?}", e);
+        }
+        if let Err(e) = stream.flush().await {
+            println!("failed to flush data; err = {:?}", e);
+        }
         stream
     }
 
@@ -105,10 +109,11 @@ impl<F, Fut> MqttClient<F, Fut>
                                 println!("failed to write to socket; err = {:?}", e);
                             }
                         }
-                        _ => {}
+                        ServerHandleKind::Exit(_) => break
                     }
                 }
             }
+            println!("client service stop!")
         });
     }
 }

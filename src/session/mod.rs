@@ -19,6 +19,7 @@ pub trait LinkHandle {
             Fut: Future<Output=Option<ServerHandleKind>> + Send;
 }
 
+#[derive(Debug)]
 pub enum LinkMessage {
     InputMessage(Vec<u8>),
     OutputMessage(Vec<u8>),

@@ -120,7 +120,10 @@ impl Topic {
 
     pub async fn broadcast(&self, msg: &TopicMessage) {
         for (_, sender) in self.senders.iter() {
-            sender.send(LinkMessage::HandleMessage(msg.clone())).await;
+            // sender.send(LinkMessage::HandleMessage(msg.clone())).await;
+            if let Err(e) = sender.send(LinkMessage::HandleMessage(msg.clone())).await{
+                println!("failed to broadcast message; err = {:?}", e);
+            }
         }
     }
 
