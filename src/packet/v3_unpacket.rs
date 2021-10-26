@@ -41,7 +41,7 @@ pub fn connack(base: BaseMessage) -> ConnackMessage {
         protocol_level: None,
         session_present,
         return_code,
-        bytes: base.bytes,
+        bytes: Some(base.bytes),
     }
 }
 
