@@ -38,6 +38,7 @@ pub fn connack(base: BaseMessage) -> ConnackMessage {
     let return_code = *message_bytes.get(1).unwrap();
     ConnackMessage {
         msg_type: base.msg_type,
+        protocol_level: None,
         session_present,
         return_code,
         bytes: base.bytes,
@@ -64,6 +65,7 @@ pub fn publish(base: BaseMessage) -> PublishMessage {
 
     PublishMessage {
         msg_type: base.msg_type,
+        protocol_level: None,
         message_id,
         topic,
         dup: base.dup.unwrap_or(MqttDup::Disable),
@@ -85,6 +87,7 @@ pub fn subscribe(base: BaseMessage) -> Vec<SubscribeMessage> {
         subs.push(
             SubscribeMessage {
                 msg_type: base.msg_type,
+                protocol_level: None,
                 message_id,
                 topic,
                 qos: MqttQos::try_from(qos).unwrap(),
@@ -111,6 +114,7 @@ pub fn unsubscribe(base: BaseMessage) -> Vec<UnsubscribeMessage> {
         subs.push(
             UnsubscribeMessage {
                 msg_type: base.msg_type,
+                protocol_level: None,
                 message_id,
                 topic,
                 bytes: Some(data_bytes.get(..remain_data.len() + 2).unwrap().to_vec()),
@@ -128,7 +132,7 @@ pub fn unsubscribe(base: BaseMessage) -> Vec<UnsubscribeMessage> {
 pub fn unsuback(base: BaseMessage) -> UnsubackMessage {
     let message_bytes = base.bytes.get(2..).unwrap();
     let (message_id, _) = parse_short_int(message_bytes);
-    UnsubackMessage { msg_type: base.msg_type, message_id, bytes: Some(base.bytes) }
+    UnsubackMessage { msg_type: base.msg_type, protocol_level: None, message_id, bytes: Some(base.bytes) }
 }
 
 pub fn suback(base: BaseMessage) -> SubackMessage {
@@ -137,6 +141,7 @@ pub fn suback(base: BaseMessage) -> SubackMessage {
     let codes = last_data.to_vec();
     SubackMessage {
         msg_type: base.msg_type,
+        protocol_level: None,
         message_id,
         codes,
         bytes: Some(base.bytes),
@@ -146,23 +151,23 @@ pub fn suback(base: BaseMessage) -> SubackMessage {
 pub fn puback(base: BaseMessage) -> PubackMessage {
     let message_bytes = base.bytes.get(2..).unwrap();
     let (message_id, _) = parse_short_int(message_bytes);
-    PubackMessage { msg_type: base.msg_type, message_id, bytes: Some(base.bytes) }
+    PubackMessage { msg_type: base.msg_type, protocol_level: None, message_id, bytes: Some(base.bytes) }
 }
 
 pub fn pubrec(base: BaseMessage) -> PubrecMessage {
     let message_bytes = base.bytes.get(2..).unwrap();
     let (message_id, _) = parse_short_int(message_bytes);
-    PubrecMessage { msg_type: base.msg_type, message_id, bytes: Some(base.bytes) }
+    PubrecMessage { msg_type: base.msg_type, protocol_level: None, message_id, bytes: Some(base.bytes) }
 }
 
 pub fn pubrel(base: BaseMessage) -> PubrelMessage {
     let message_bytes = base.bytes.get(2..).unwrap();
     let (message_id, _) = parse_short_int(message_bytes);
-    PubrelMessage { msg_type: base.msg_type, message_id, bytes: Some(base.bytes) }
+    PubrelMessage { msg_type: base.msg_type, protocol_level: None, message_id, bytes: Some(base.bytes) }
 }
 
 pub fn pubcomp(base: BaseMessage) -> PubcompMessage {
     let message_bytes = base.bytes.get(2..).unwrap();
     let (message_id, _) = parse_short_int(message_bytes);
-    PubcompMessage { msg_type: base.msg_type, message_id, bytes: Some(base.bytes) }
+    PubcompMessage { msg_type: base.msg_type, protocol_level: None, message_id, bytes: Some(base.bytes) }
 }

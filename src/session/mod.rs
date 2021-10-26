@@ -2,7 +2,7 @@ use std::future::Future;
 use tokio::sync::mpsc::Sender;
 use crate::message::{BaseMessage, MqttMessageKind};
 use crate::subscript::{ClientID, TopicMessage};
-use crate::tools::protocol::{MqttDup, MqttProtocolLevel, MqttQos, MqttRetain, MqttWillFlag};
+use crate::tools::protocol::{MqttCleanSession, MqttDup, MqttProtocolLevel, MqttQos, MqttRetain, MqttWillFlag};
 use crate::server::ServerHandleKind;
 use async_trait::async_trait;
 use crate::message::v3::PublishMessage;
@@ -19,6 +19,13 @@ pub trait LinkHandle {
             Fut: Future<Output=Option<ServerHandleKind>> + Send;
 }
 
+#[async_trait]
+pub trait MqttSession: Clone {
+    async fn publish(&self, msg: &PublishMessage);
+    async fn subscribe(&self, topic: &String);
+    async fn exit(&self);
+}
+
 #[derive(Debug)]
 pub enum LinkMessage {
     InputMessage(Vec<u8>),
@@ -30,7 +37,7 @@ pub enum LinkMessage {
 #[derive(Clone)]
 pub struct Session {
     sender: Sender<LinkMessage>,
-    // receiver: Receiver<LinkMessage>,
+    clean_session: Option<MqttCleanSession>,
     client_id: Option<ClientID>,
     protocol_name: Option<String>,
     protocol_level: Option<MqttProtocolLevel>,
@@ -53,7 +60,7 @@ impl Session {
             will_topic: None,
             will_message: None,
             sender,
-            // receiver,
+            clean_session: None,
         }
     }
 
@@ -111,22 +118,44 @@ impl Session {
         };
     }
 
-    pub fn get_sender(&self) -> Sender<LinkMessage> {
-        self.sender.clone()
-    }
+    // pub async fn publish(&self, msg: &PublishMessage) {
+    //     let topic_msg = TopicMessage::ContentV3(self.get_client_id().to_owned(), msg.clone());
+    //     println!("topic: {:?}", topic_msg);
+    //     SUBSCRIPT.broadcast(&msg.topic, &topic_msg).await;
+    // }
+    //
+    // pub async fn subscribe(&self, topic: &String) {
+    //     println!("{:?}", topic);
+    //     if SUBSCRIPT.contain(topic).await {
+    //         SUBSCRIPT.subscript(topic, self.get_client_id(), self.sender.clone());
+    //     } else {
+    //         SUBSCRIPT.new_subscript(topic, self.get_client_id(), self.sender.clone()).await;
+    //     }
+    //     println!("broadcast topic len: {}", SUBSCRIPT.len().await);
+    //     println!("broadcast topic list: {:?}", SUBSCRIPT.topics().await);
+    //     println!("broadcast client len: {:?}", SUBSCRIPT.client_len(topic).await);
+    //     println!("broadcast client list: {:?}", SUBSCRIPT.clients(topic).await);
+    // }
+    //
+    // pub async fn exit(&self) {
+    //     self.sender.send(LinkMessage::ExitMessage(true)).await;
+    // }
+}
 
-    pub async fn publish(&self, msg: &PublishMessage) {
+#[async_trait]
+impl MqttSession for Session {
+    async fn publish(&self, msg: &PublishMessage) {
         let topic_msg = TopicMessage::ContentV3(self.get_client_id().to_owned(), msg.clone());
         println!("topic: {:?}", topic_msg);
         SUBSCRIPT.broadcast(&msg.topic, &topic_msg).await;
     }
 
-    pub async fn subscribe(&self, topic: &String) {
+    async fn subscribe(&self, topic: &String) {
         println!("{:?}", topic);
         if SUBSCRIPT.contain(topic).await {
-            SUBSCRIPT.subscript(topic, self.get_client_id(), self.get_sender());
+            SUBSCRIPT.subscript(topic, self.get_client_id(), self.sender.clone());
         } else {
-            SUBSCRIPT.new_subscript(topic, self.get_client_id(), self.get_sender()).await;
+            SUBSCRIPT.new_subscript(topic, self.get_client_id(), self.sender.clone()).await;
         }
         println!("broadcast topic len: {}", SUBSCRIPT.len().await);
         println!("broadcast topic list: {:?}", SUBSCRIPT.topics().await);
@@ -134,7 +163,7 @@ impl Session {
         println!("broadcast client list: {:?}", SUBSCRIPT.clients(topic).await);
     }
 
-    pub async fn exit(&self) {
+    async fn exit(&self) {
         self.sender.send(LinkMessage::ExitMessage(true)).await;
     }
 }

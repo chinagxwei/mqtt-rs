@@ -4,7 +4,7 @@ use mqtt_demo::message::MqttMessageKind;
 use mqtt_demo::message::v3::{SubackMessage, DisconnectMessage, MqttMessageV3, PubackMessage, UnsubackMessage, ConnackMessage, PubrelMessage, PubrecMessage, PubcompMessage};
 use mqtt_demo::server::ServerHandleKind;
 use mqtt_demo::server::v3_server::MqttServer;
-use mqtt_demo::session::Session;
+use mqtt_demo::session::{MqttSession, Session};
 use mqtt_demo::tools::protocol::MqttQos;
 
 #[tokio::main]

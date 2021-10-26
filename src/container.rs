@@ -72,6 +72,10 @@ impl MessageContainer {
         }
     }
 
+    pub async fn remove(&self, client_id: &ClientID) -> Option<ClientMessageFrames> {
+        self.inner.lock().await.remove(client_id)
+    }
+
     pub async fn complete(&self, client_id: &ClientID, message_id: u16) {
         if let Some(frames) = self.inner.lock().await.get_mut(client_id) {
             frames.complete(message_id)

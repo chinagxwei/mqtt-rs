@@ -2,7 +2,7 @@ use std::future::Future;
 use async_trait::async_trait;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::Receiver;
-use crate::message::{BaseMessage, MqttMessageKind, PingreqMessage};
+use crate::message::{BaseMessage, MqttMessageKind};
 use crate::message::v3::DisconnectMessage;
 use crate::server::ServerHandleKind;
 use crate::session::{LinkHandle, LinkMessage, Session};

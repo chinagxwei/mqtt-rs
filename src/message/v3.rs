@@ -184,6 +184,7 @@ impl WillField for ConnectMessage {
 #[derive(Debug, Clone)]
 pub struct ConnackMessage {
     pub msg_type: TypeKind,
+    pub protocol_level: Option<MqttProtocolLevel>,
     pub session_present: MqttSessionPresent,
     pub return_code: u8,
     pub bytes: Vec<u8>,
@@ -205,6 +206,7 @@ impl Default for ConnackMessage {
     fn default() -> Self {
         ConnackMessage {
             msg_type: TypeKind::CONNACK,
+            protocol_level: None,
             session_present: MqttSessionPresent::Disable,
             return_code: ReasonCodeV3::ConnectionAccepted as u8,
             bytes: v3_packet::connack(MqttSessionPresent::Disable, ReasonCodeV3::ConnectionAccepted),
@@ -222,6 +224,7 @@ impl ConnackMessage {
     pub fn new(session_present: MqttSessionPresent, return_code: ReasonCodeV3) -> ConnackMessage {
         ConnackMessage {
             msg_type: TypeKind::CONNACK,
+            protocol_level: None,
             session_present,
             return_code: return_code as u8,
             bytes: v3_packet::connack(session_present, return_code),
@@ -232,6 +235,7 @@ impl ConnackMessage {
 #[derive(Debug, Clone)]
 pub struct SubscribeMessage {
     pub msg_type: TypeKind,
+    pub protocol_level: Option<MqttProtocolLevel>,
     pub message_id: u16,
     pub topic: String,
     pub qos: MqttQos,
@@ -254,6 +258,7 @@ impl SubscribeMessage {
     pub fn new(message_id: u16, topic: String, qos: MqttQos) -> Self {
         let mut msg = SubscribeMessage {
             msg_type: TypeKind::SUBSCRIBE,
+            protocol_level: None,
             message_id,
             topic,
             qos,
@@ -267,6 +272,7 @@ impl SubscribeMessage {
 #[derive(Debug, Clone)]
 pub struct SubackMessage {
     pub msg_type: TypeKind,
+    pub protocol_level: Option<MqttProtocolLevel>,
     pub message_id: u16,
     pub codes: Vec<u8>,
     pub bytes: Option<Vec<u8>>,
@@ -293,6 +299,7 @@ impl SubackMessage {
         };
         let mut msg = SubackMessage {
             msg_type: TypeKind::SUBACK,
+            protocol_level: None,
             message_id,
             codes,
             bytes: None,
@@ -311,6 +318,7 @@ impl From<SubscribeMessage> for SubackMessage {
         };
         let mut msg = SubackMessage {
             msg_type: TypeKind::SUBACK,
+            protocol_level: None,
             message_id: smsg.message_id,
             codes,
             bytes: None,
@@ -329,6 +337,7 @@ impl From<BaseMessage> for SubackMessage {
 #[derive(Debug, Clone)]
 pub struct UnsubscribeMessage {
     pub msg_type: TypeKind,
+    pub protocol_level: Option<MqttProtocolLevel>,
     pub message_id: u16,
     pub topic: String,
     pub bytes: Option<Vec<u8>>,
@@ -350,6 +359,7 @@ impl UnsubscribeMessage {
     pub fn new(message_id: u16, topic: String) -> Self {
         let mut msg = UnsubscribeMessage {
             msg_type: TypeKind::UNSUBSCRIBE,
+            protocol_level: None,
             message_id,
             topic,
             bytes: None,
@@ -362,6 +372,7 @@ impl UnsubscribeMessage {
 #[derive(Debug, Clone)]
 pub struct UnsubackMessage {
     pub msg_type: TypeKind,
+    pub protocol_level: Option<MqttProtocolLevel>,
     pub message_id: u16,
     pub bytes: Option<Vec<u8>>,
 }
@@ -382,6 +393,7 @@ impl UnsubackMessage {
     pub fn new(message_id: u16) -> Self {
         let mut msg = UnsubackMessage {
             msg_type: TypeKind::UNSUBACK,
+            protocol_level: None,
             message_id,
             bytes: None,
         };
@@ -399,6 +411,7 @@ impl From<BaseMessage> for UnsubackMessage {
 #[derive(Debug, Clone)]
 pub struct PublishMessage {
     pub msg_type: TypeKind,
+    pub protocol_level: Option<MqttProtocolLevel>,
     pub message_id: u16,
     pub topic: String,
     pub dup: MqttDup,
@@ -430,6 +443,7 @@ impl PublishMessage {
     pub fn new(qos: MqttQos, dup: MqttDup, retain: MqttRetain, topic: String, message_id: u16, message_body: String) -> PublishMessage {
         let mut msg = PublishMessage {
             msg_type: TypeKind::PUBLISH,
+            protocol_level: None,
             message_id,
             topic,
             dup,
@@ -446,6 +460,7 @@ impl PublishMessage {
 #[derive(Debug, Clone)]
 pub struct PubackMessage {
     pub msg_type: TypeKind,
+    pub protocol_level: Option<MqttProtocolLevel>,
     pub message_id: u16,
     pub bytes: Option<Vec<u8>>,
 }
@@ -466,6 +481,7 @@ impl PubackMessage {
     pub fn new(message_id: u16) -> Self {
         let mut msg = PubackMessage {
             msg_type: TypeKind::PUBACK,
+            protocol_level: None,
             message_id,
             bytes: None,
         };
@@ -483,6 +499,7 @@ impl From<BaseMessage> for PubackMessage {
 #[derive(Debug, Clone)]
 pub struct PubrecMessage {
     pub msg_type: TypeKind,
+    pub protocol_level: Option<MqttProtocolLevel>,
     pub message_id: u16,
     pub bytes: Option<Vec<u8>>,
 }
@@ -503,6 +520,7 @@ impl PubrecMessage {
     pub fn new(message_id: u16) -> Self {
         let mut msg = PubrecMessage {
             msg_type: TypeKind::PUBREC,
+            protocol_level: None,
             message_id,
             bytes: None,
         };
@@ -526,6 +544,7 @@ impl From<PubackMessage> for PubrecMessage {
 #[derive(Debug, Clone)]
 pub struct PubrelMessage {
     pub msg_type: TypeKind,
+    pub protocol_level: Option<MqttProtocolLevel>,
     pub message_id: u16,
     pub bytes: Option<Vec<u8>>,
 }
@@ -546,6 +565,7 @@ impl PubrelMessage {
     pub fn new(message_id: u16) -> Self {
         let mut msg = PubrelMessage {
             msg_type: TypeKind::PUBREL,
+            protocol_level: None,
             message_id,
             bytes: None,
         };
@@ -569,6 +589,7 @@ impl From<PubrecMessage> for PubrelMessage {
 #[derive(Debug, Clone)]
 pub struct PubcompMessage {
     pub msg_type: TypeKind,
+    pub protocol_level: Option<MqttProtocolLevel>,
     pub message_id: u16,
     pub bytes: Option<Vec<u8>>,
 }
@@ -589,6 +610,7 @@ impl PubcompMessage {
     pub fn new(message_id: u16) -> Self {
         let mut msg = PubcompMessage {
             msg_type: TypeKind::PUBCOMP,
+            protocol_level: None,
             message_id,
             bytes: None,
         };
@@ -612,6 +634,7 @@ impl From<PubrelMessage> for PubcompMessage {
 #[derive(Debug, Clone)]
 pub struct DisconnectMessage {
     msg_type: TypeKind,
+    pub protocol_level: Option<MqttProtocolLevel>,
     pub bytes: Vec<u8>,
 }
 
@@ -631,6 +654,7 @@ impl Default for DisconnectMessage {
     fn default() -> Self {
         DisconnectMessage {
             msg_type: TypeKind::DISCONNECT,
+            protocol_level: None,
             bytes: pack_header(TypeKind::DISCONNECT, 0),
         }
     }
@@ -638,6 +662,6 @@ impl Default for DisconnectMessage {
 
 impl From<BaseMessage> for DisconnectMessage {
     fn from(base: BaseMessage) -> Self {
-        DisconnectMessage { msg_type: base.msg_type, bytes: base.bytes }
+        DisconnectMessage { msg_type: base.msg_type, protocol_level: None, bytes: base.bytes }
     }
 }
