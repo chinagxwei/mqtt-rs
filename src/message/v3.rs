@@ -187,7 +187,7 @@ pub struct ConnackMessage {
     pub protocol_level: Option<MqttProtocolLevel>,
     pub session_present: MqttSessionPresent,
     pub return_code: u8,
-    pub bytes: Vec<u8>,
+    pub bytes: Option<Vec<u8>>,
 }
 
 impl MqttMessageType for ConnackMessage {
@@ -198,7 +198,7 @@ impl MqttMessageType for ConnackMessage {
 
 impl MqttBytesMessage for ConnackMessage {
     fn as_bytes(&self) -> &[u8] {
-        self.bytes.as_slice()
+        self.bytes.as_ref().unwrap()
     }
 }
 
@@ -209,7 +209,7 @@ impl Default for ConnackMessage {
             protocol_level: None,
             session_present: MqttSessionPresent::Disable,
             return_code: ReasonCodeV3::ConnectionAccepted as u8,
-            bytes: v3_packet::connack(MqttSessionPresent::Disable, ReasonCodeV3::ConnectionAccepted),
+            bytes: Some(v3_packet::connack(MqttSessionPresent::Disable, ReasonCodeV3::ConnectionAccepted)),
         }
     }
 }
@@ -227,7 +227,7 @@ impl ConnackMessage {
             protocol_level: None,
             session_present,
             return_code: return_code as u8,
-            bytes: v3_packet::connack(session_present, return_code),
+            bytes: Some(v3_packet::connack(session_present, return_code)),
         }
     }
 }
@@ -635,7 +635,7 @@ impl From<PubrelMessage> for PubcompMessage {
 pub struct DisconnectMessage {
     msg_type: TypeKind,
     pub protocol_level: Option<MqttProtocolLevel>,
-    pub bytes: Vec<u8>,
+    pub bytes: Option<Vec<u8>>,
 }
 
 impl MqttMessageType for DisconnectMessage {
@@ -646,7 +646,7 @@ impl MqttMessageType for DisconnectMessage {
 
 impl MqttBytesMessage for DisconnectMessage {
     fn as_bytes(&self) -> &[u8] {
-        &self.bytes.as_slice()
+        &self.bytes.as_ref().unwrap()
     }
 }
 
@@ -655,13 +655,13 @@ impl Default for DisconnectMessage {
         DisconnectMessage {
             msg_type: TypeKind::DISCONNECT,
             protocol_level: None,
-            bytes: pack_header(TypeKind::DISCONNECT, 0),
+            bytes: Some(pack_header(TypeKind::DISCONNECT, 0)),
         }
     }
 }
 
 impl From<BaseMessage> for DisconnectMessage {
     fn from(base: BaseMessage) -> Self {
-        DisconnectMessage { msg_type: base.msg_type, protocol_level: None, bytes: base.bytes }
+        DisconnectMessage { msg_type: base.msg_type, protocol_level: None, bytes: Some(base.bytes) }
     }
 }
