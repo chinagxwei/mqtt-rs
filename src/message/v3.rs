@@ -517,6 +517,12 @@ impl From<BaseMessage> for PubrecMessage {
     }
 }
 
+impl From<PubackMessage> for PubrecMessage {
+    fn from(puback: PubackMessage) -> Self {
+        PubrecMessage::new(puback.message_id)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct PubrelMessage {
     pub msg_type: TypeKind,
@@ -554,6 +560,12 @@ impl From<BaseMessage> for PubrelMessage {
     }
 }
 
+impl From<PubrecMessage> for PubrelMessage {
+    fn from(pubrec: PubrecMessage) -> Self {
+        PubrelMessage::new(pubrec.message_id)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct PubcompMessage {
     pub msg_type: TypeKind,
@@ -588,6 +600,12 @@ impl PubcompMessage {
 impl From<BaseMessage> for PubcompMessage {
     fn from(base: BaseMessage) -> Self {
         v3_unpacket::pubcomp(base)
+    }
+}
+
+impl From<PubrelMessage> for PubcompMessage {
+    fn from(pubrel: PubrelMessage) -> Self {
+        PubcompMessage::new(pubrel.message_id)
     }
 }
 

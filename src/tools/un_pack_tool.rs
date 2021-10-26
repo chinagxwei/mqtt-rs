@@ -63,7 +63,7 @@ pub fn get_connect_payload_data(protocol_level: MqttProtocolLevel, data: &[u8], 
         let (will_message, will_last_data) = parse_string(will_last_data.unwrap()).unwrap();
         (properties, Some(will_topic), Some(will_message), will_last_data)
     } else {
-        (None, None, None, last_data)
+        (None, Some("".to_string()), Some("".to_string()), last_data)
     };
 
     let (user_name, last_data) = if MqttUsernameFlag::Enable == username_flag {

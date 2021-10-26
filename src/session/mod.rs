@@ -23,8 +23,8 @@ pub trait LinkHandle {
 pub enum LinkMessage {
     InputMessage(Vec<u8>),
     OutputMessage(Vec<u8>),
-    ExitMessage(Vec<u8>),
     HandleMessage(TopicMessage),
+    ExitMessage(bool),
 }
 
 #[derive(Clone)]
@@ -132,5 +132,9 @@ impl Session {
         println!("broadcast topic list: {:?}", SUBSCRIPT.topics().await);
         println!("broadcast client len: {:?}", SUBSCRIPT.client_len(topic).await);
         println!("broadcast client list: {:?}", SUBSCRIPT.clients(topic).await);
+    }
+
+    pub async fn exit(&self) {
+        self.sender.send(LinkMessage::ExitMessage(true)).await;
     }
 }

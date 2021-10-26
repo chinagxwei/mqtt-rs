@@ -281,6 +281,7 @@ impl Default for PingrespMessage {
     }
 }
 
+#[derive(Debug)]
 pub struct VariableHeader {
     pub protocol_name: Option<String>,
     pub keep_alive: Option<u16>,

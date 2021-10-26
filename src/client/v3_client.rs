@@ -65,11 +65,11 @@ impl<F, Fut> MqttClient<F, Fut>
     //     UnsubscribeMessage::new()
     // }
 
-    pub async fn disconnect(&self) {
-        if let Some(sender) = self.sender.as_ref() {
-            sender.send(LinkMessage::OutputMessage(DisconnectMessage::default().bytes)).await;
-        }
-    }
+    // pub async fn disconnect(&self) {
+    //     if let Some(sender) = self.sender.as_ref() {
+    //         sender.send(LinkMessage::OutputMessage(DisconnectMessage::default().bytes)).await;
+    //     }
+    // }
 
     async fn init(&self) -> TcpStream {
         let socket = TcpSocket::new_v4().unwrap();
@@ -165,7 +165,7 @@ async fn run<S, F, Fut>(mut stream: S, handle: F, mut link: Link, config: Config
                         println!("failed to write to socket; err = {:?}", e);
                     }
                 }
-                ServerHandleKind::Exit(_) => break
+                ServerHandleKind::Exit => break
             }
         }
     }

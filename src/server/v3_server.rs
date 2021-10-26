@@ -114,13 +114,7 @@ async fn run<S, F, Fut>(mut stream: S, handle: F)
                         println!("failed to write to socket; err = {:?}", e);
                     }
                 }
-                ServerHandleKind::Exit(data) => {
-                    if let Err(e) = stream.write_all(data.as_slice()).await {
-                        println!("failed to write to socket; err = {:?}", e);
-                    }
-                    break;
-                }
-                _ => {}
+                ServerHandleKind::Exit => break
             }
         }
     }

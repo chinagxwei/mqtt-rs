@@ -50,8 +50,8 @@ impl LinkHandle for Link {
                     LinkMessage::OutputMessage(data) => {
                         Some(ServerHandleKind::Response(data))
                     },
-                    LinkMessage::ExitMessage(data) => {
-                        Some(ServerHandleKind::Exit(data))
+                    LinkMessage::ExitMessage(_) => {
+                        Some(ServerHandleKind::Exit)
                     }
                     _ => None
                 }

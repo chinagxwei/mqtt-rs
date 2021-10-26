@@ -12,7 +12,7 @@ use crate::session::{LinkHandle, LinkMessage, Session};
 use crate::subscript::{ClientID, TopicMessage};
 use crate::tools::protocol::{MqttDup, MqttProtocolLevel, MqttQos, MqttRetain, MqttWillFlag};
 use crate::tools::types::TypeKind;
-use crate::SUBSCRIPT;
+use crate::{SUBSCRIPT, MESSAGE_CONTAINER};
 use std::future::Future;
 use std::io::Read;
 use std::ops::{Deref, DerefMut};
@@ -21,6 +21,7 @@ use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
 use crate::server::ServerHandleKind;
 use async_trait::async_trait;
+use crate::container::MessageFrame;
 
 pub struct Link {
     session: Session,
@@ -42,7 +43,7 @@ impl Link {
 
     pub async fn send_message(&self, msg: LinkMessage) {
         // self.session.get_sender().send(msg).await;
-        if let Err(e) = self.session.sender.send(msg).await{
+        if let Err(e) = self.session.sender.send(msg).await {
             println!("failed to send message; err = {:?}", e);
         }
     }
@@ -65,6 +66,7 @@ impl LinkHandle for Link {
                             RequestV3(v3) => {
                                 match v3 {
                                     Connect(connect_msg) => {
+                                        println!("{:?}", connect_msg);
                                         self.session.init_protocol(
                                             connect_msg.protocol_name.clone(),
                                             connect_msg.protocol_level.clone(),
@@ -78,12 +80,15 @@ impl LinkHandle for Link {
                                             connect_msg.payload.will_message.clone().unwrap(),
                                         );
                                     }
-                                    Unsubscribe(msg)=>{
+                                    Unsubscribe(msg) => {
                                         if SUBSCRIPT.contain(&msg.topic).await {
                                             if SUBSCRIPT.is_subscript(&msg.topic, self.session.get_client_id()).await {
                                                 SUBSCRIPT.unsubscript(&msg.topic, self.session.get_client_id()).await;
                                             }
                                         }
+                                    }
+                                    Pubrel(msg) => {
+                                        MESSAGE_CONTAINER.complete(self.session.get_client_id(), msg.message_id).await;
                                     }
                                     Disconnect(_) => {
                                         if self.session.is_will_flag() {
@@ -108,6 +113,18 @@ impl LinkHandle for Link {
                             let client_id = self.session().get_client_id();
                             println!("from: {:?}", from_id);
                             println!("to: {:?}", client_id);
+                            if content.qos == MqttQos::Qos2 {
+                                MESSAGE_CONTAINER.append(
+                                    client_id.clone(),
+                                    content.message_id,
+                                    MessageFrame::new(
+                                        from_id.clone(),
+                                        client_id.clone(),
+                                        content.bytes.as_ref().unwrap().clone(),
+                                        content.message_id,
+                                    ),
+                                ).await;
+                            }
                             if client_id != &from_id {
                                 return Some(ServerHandleKind::Response(
                                     content.as_bytes().to_vec(),
@@ -120,6 +137,15 @@ impl LinkHandle for Link {
                         }
                         _ => None,
                     }
+                }
+                LinkMessage::ExitMessage(will) => {
+                    if will && self.session.is_will_flag() {
+                        if let Some(ref topic_msg) = self.session.get_will_message() {
+                            SUBSCRIPT.broadcast(self.session.get_will_topic(), topic_msg).await;
+                        }
+                    }
+                    SUBSCRIPT.exit(self.session.get_client_id()).await;
+                    Some(ServerHandleKind::Exit)
                 }
                 _ => None
             },

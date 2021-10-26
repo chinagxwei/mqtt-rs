@@ -1,7 +1,7 @@
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::str::FromStr;
 use mqtt_demo::message::MqttMessageKind;
-use mqtt_demo::message::v3::{SubackMessage, DisconnectMessage, MqttMessageV3, PubackMessage, UnsubackMessage};
+use mqtt_demo::message::v3::{SubackMessage, DisconnectMessage, MqttMessageV3, PubackMessage, UnsubackMessage, ConnackMessage, PubrelMessage, PubrecMessage, PubcompMessage};
 use mqtt_demo::server::ServerHandleKind;
 use mqtt_demo::server::v3_server::MqttServer;
 use mqtt_demo::session::Session;
@@ -26,7 +26,7 @@ pub async fn handle_v3_message(session: Session, v3_kind: Option<MqttMessageKind
             MqttMessageKind::RequestV3(ref msg) => {
                 let res_msg = handle_v3(&session, Some(msg)).await.expect("handle v3 message error");
                 if res_msg.is_disconnect() {
-                    Some(ServerHandleKind::Exit(res_msg.as_bytes().to_vec()))
+                    Some(ServerHandleKind::Exit)
                 } else {
                     Some(ServerHandleKind::Response(res_msg.as_bytes().to_vec()))
                 }
@@ -49,19 +49,29 @@ pub async fn handle_v3_message(session: Session, v3_kind: Option<MqttMessageKind
 async fn handle_v3(session: &Session, kind_opt: Option<&MqttMessageV3>) -> Option<MqttMessageV3> {
     if let Some(kind) = kind_opt {
         return match kind {
+            MqttMessageV3::Connect(_) => {
+                return Some(MqttMessageV3::Connack(ConnackMessage::default()));
+            }
             MqttMessageV3::Subscribe(msg) => {
                 session.subscribe(&msg.topic).await;
                 let sm = SubackMessage::from(msg.clone());
                 println!("{:?}", sm);
                 return Some(MqttMessageV3::Suback(sm));
-            },
+            }
             MqttMessageV3::Unsubscribe(msg) => Some(MqttMessageV3::Unsuback(UnsubackMessage::new(msg.message_id))),
             MqttMessageV3::Publish(msg) => {
                 session.publish(msg).await;
-                if msg.qos == MqttQos::Qos1 {
-                    return Some(MqttMessageV3::Puback(PubackMessage::new(msg.message_id)));
+                match msg.qos {
+                    MqttQos::Qos1 => return Some(MqttMessageV3::Puback(PubackMessage::new(msg.message_id))),
+                    MqttQos::Qos2 => return Some(MqttMessageV3::Pubrec(PubrecMessage::new(msg.message_id))),
+                    _ => return None
                 }
-                return None;
+            }
+            MqttMessageV3::Pubrec(msg) => {
+                Some(MqttMessageV3::Pubrel(PubrelMessage::from(msg.clone())))
+            },
+            MqttMessageV3::Pubrel(msg) => {
+                Some(MqttMessageV3::Pubcomp(PubcompMessage::from(msg.clone())))
             },
             MqttMessageV3::Pingresp(msg) => Some(MqttMessageV3::Pingresp(msg.clone())),
             MqttMessageV3::Disconnect(_) => Some(MqttMessageV3::Disconnect(DisconnectMessage::default())),
