@@ -143,29 +143,6 @@ impl ServerSessionV3 {
             _ => None
         };
     }
-
-    // pub async fn publish(&self, msg: &PublishMessage) {
-    //     let topic_msg = TopicMessage::ContentV3(self.get_client_id().to_owned(), msg.clone());
-    //     println!("topic: {:?}", topic_msg);
-    //     SUBSCRIPT.broadcast(&msg.topic, &topic_msg).await;
-    // }
-    //
-    // pub async fn subscribe(&self, topic: &String) {
-    //     println!("{:?}", topic);
-    //     if SUBSCRIPT.contain(topic).await {
-    //         SUBSCRIPT.subscript(topic, self.get_client_id(), self.sender.clone());
-    //     } else {
-    //         SUBSCRIPT.new_subscript(topic, self.get_client_id(), self.sender.clone()).await;
-    //     }
-    //     println!("broadcast topic len: {}", SUBSCRIPT.len().await);
-    //     println!("broadcast topic list: {:?}", SUBSCRIPT.topics().await);
-    //     println!("broadcast client len: {:?}", SUBSCRIPT.client_len(topic).await);
-    //     println!("broadcast client list: {:?}", SUBSCRIPT.clients(topic).await);
-    // }
-    //
-    // pub async fn exit(&self) {
-    //     self.sender.send(LinkMessage::ExitMessage(true)).await;
-    // }
 }
 
 #[async_trait]
