@@ -3,22 +3,22 @@ use async_trait::async_trait;
 use tokio::sync::mpsc::Receiver;
 use crate::message::{BaseMessage, MqttMessageKind};
 use crate::server::ServerHandleKind;
-use crate::session::{LinkHandle, LinkMessage, MqttSession, ClientSession};
+use crate::session::{LinkHandle, LinkMessage, MqttSession, ClientSessionV3};
 
 pub struct Link {
-    session: ClientSession,
+    session: ClientSessionV3,
     receiver: Receiver<LinkMessage>,
 }
 
 impl Link {
-    pub fn new(session: ClientSession, receiver: Receiver<LinkMessage>) -> Link {
+    pub fn new(session: ClientSessionV3, receiver: Receiver<LinkMessage>) -> Link {
         Link {
             session,
             receiver,
         }
     }
 
-    pub fn session(&self) -> &ClientSession {
+    pub fn session(&self) -> &ClientSessionV3 {
         &self.session
     }
 
@@ -32,20 +32,21 @@ impl Link {
 
 #[async_trait]
 impl LinkHandle for Link {
-    type Ses = ClientSession;
+    type Ses = ClientSessionV3;
 
     async fn handle<F, Fut>(&mut self, f: F) -> Option<ServerHandleKind>
         where
             F: Fn(Self::Ses, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
-            Fut: Future<Output=Option<ServerHandleKind>> + Send
+            Fut: Future<Output=()> + Send
     {
         return match self.receiver.recv().await {
             Some(msg) => {
                 match msg {
                     LinkMessage::InputMessage(data) => {
                         let base_msg = BaseMessage::from(data);
-                        let v3_request = MqttMessageKind::v3(base_msg);
-                        f(self.session.clone(), v3_request).await
+                        let v3_request = MqttMessageKind::to_v3_request(base_msg);
+                        f(self.session.clone(), v3_request).await;
+                        None
                     }
                     LinkMessage::OutputMessage(data) => {
                         Some(ServerHandleKind::Response(data))

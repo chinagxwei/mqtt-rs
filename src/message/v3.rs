@@ -100,3 +100,30 @@ impl MqttMessageV3 {
     }
 }
 
+#[macro_export]
+macro_rules! impl_mqtt_message_v3 {
+    ($name:ident,$kind:ident) => {
+        impl From<$name> for MqttMessageV3 {
+            fn from(msg: $name) -> Self {
+                MqttMessageV3::$kind(msg)
+            }
+        }
+    };
+}
+
+impl_mqtt_message_v3!(ConnectMessage,Connect);
+impl_mqtt_message_v3!(ConnackMessage,Connack);
+impl_mqtt_message_v3!(PublishMessage,Publish);
+impl_mqtt_message_v3!(PubackMessage,Puback);
+impl_mqtt_message_v3!(PubrecMessage,Pubrec);
+impl_mqtt_message_v3!(PubrelMessage,Pubrel);
+impl_mqtt_message_v3!(PubcompMessage,Pubcomp);
+impl_mqtt_message_v3!(SubscribeMessage,Subscribe);
+impl_mqtt_message_v3!(SubackMessage,Suback);
+impl_mqtt_message_v3!(UnsubscribeMessage,Unsubscribe);
+impl_mqtt_message_v3!(PingreqMessage,Pingreq);
+impl_mqtt_message_v3!(PingrespMessage,Pingresp);
+impl_mqtt_message_v3!(DisconnectMessage,Disconnect);
+
+
+

@@ -7,15 +7,15 @@ use tokio_rustls::rustls;
 use crate::message::MqttMessageKind;
 use crate::server::{MqttServerOption, ServerHandleKind};
 use crate::session::v3_server_link::Link;
-use crate::session::{LinkMessage, ServerSession};
+use crate::session::{LinkMessage, ServerSessionV3};
 use crate::session::LinkHandle;
 use crate::tools::tls::{load_certs, load_keys};
 use tokio_rustls::TlsAcceptor;
 
 pub struct MqttServer<F, Fut>
     where
-        F: Fn(ServerSession, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
-        Fut: Future<Output=Option<ServerHandleKind>> + Send,
+        F: Fn(ServerSessionV3, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
+        Fut: Future<Output=()> + Send,
 {
     addr: SocketAddr,
     handle: Option<Box<F>>,
@@ -24,8 +24,8 @@ pub struct MqttServer<F, Fut>
 
 impl<F, Fut> MqttServer<F, Fut>
     where
-        F: Fn(ServerSession, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
-        Fut: Future<Output=Option<ServerHandleKind>> + Send,
+        F: Fn(ServerSessionV3, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
+        Fut: Future<Output=()> + Send,
 {
     pub fn new(addr: SocketAddr) -> MqttServer<F, Fut> {
         MqttServer { addr, handle: None, option: None }
@@ -56,7 +56,7 @@ impl<F, Fut> MqttServer<F, Fut>
         if self.handle.is_none() { return; }
         if let Some(acceptor) = self.acceptor() {
             let listener: TcpListener = TcpListener::bind(self.addr).await.expect("listener error");
-            while let Ok((mut stream, _)) = listener.accept().await {
+            while let Ok((stream, _)) = listener.accept().await {
                 let handle_message = **self.handle.as_ref().unwrap();
                 let acceptor = acceptor.clone();
                 let stream = acceptor.accept(stream).await.expect("");
@@ -81,8 +81,8 @@ impl<F, Fut> MqttServer<F, Fut>
 
 async fn run<S, F, Fut>(mut stream: S, handle: F)
     where
-        F: Fn(ServerSession, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
-        Fut: Future<Output=Option<ServerHandleKind>> + Send,
+        F: Fn(ServerSessionV3, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
+        Fut: Future<Output=()> + Send,
         S: AsyncReadExt + AsyncWriteExt + Unpin
 {
     let mut buf = [0; 1024];

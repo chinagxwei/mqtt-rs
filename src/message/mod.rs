@@ -17,6 +17,10 @@ pub enum MqttMessageKind {
     RequestV3Vec(Vec<MqttMessageV3>),
     RequestV5(MqttMessageV5),
     RequestV5Vec(Vec<MqttMessageV5>),
+    ResponseV3(MqttMessageV3),
+    ResponseVec(Vec<MqttMessageV3>),
+    ResponseV5(MqttMessageV5),
+    ResponseV5Vec(Vec<MqttMessageV5>),
 }
 
 impl MqttMessageKind {
@@ -74,7 +78,7 @@ impl MqttMessageKind {
 }
 
 impl MqttMessageKind {
-    pub fn v3(base_msg: BaseMessage) -> Option<MqttMessageKind> {
+    pub fn to_v3_request(base_msg: BaseMessage) -> Option<MqttMessageKind> {
         match base_msg.get_message_type() {
             TypeKind::CONNECT => { Some(Self::RequestV3(v3_unpacket::connect(base_msg))) }
             TypeKind::CONNACK => { Some(Self::RequestV3(v3_unpacket::connack(base_msg))) }
@@ -96,7 +100,7 @@ impl MqttMessageKind {
 }
 
 impl MqttMessageKind {
-    pub fn v5(base_msg: BaseMessage) -> Option<MqttMessageKind> {
+    pub fn to_v5_request(base_msg: BaseMessage) -> Option<MqttMessageKind> {
         match base_msg.msg_type {
             TypeKind::CONNECT => { Some(Self::RequestV5(v5_unpacket::connect(base_msg))) }
             TypeKind::CONNACK => { Some(Self::RequestV5(v5_unpacket::connack(base_msg))) }

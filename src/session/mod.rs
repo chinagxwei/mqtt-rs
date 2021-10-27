@@ -17,7 +17,7 @@ pub trait LinkHandle {
     async fn handle<F, Fut>(&mut self, f: F) -> Option<ServerHandleKind>
         where
             F: Fn(Self::Ses, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
-            Fut: Future<Output=Option<ServerHandleKind>> + Send;
+            Fut: Future<Output=()> + Send;
 }
 
 #[async_trait]
@@ -25,6 +25,7 @@ pub trait MqttSession: Clone {
     async fn publish(&self, msg: &PublishMessage);
     async fn subscribe(&self, topic: &String);
     async fn exit(&self);
+    async fn send(&self, msg: Vec<u8>);
 }
 
 #[derive(Debug)]
@@ -36,35 +37,31 @@ pub enum LinkMessage {
 }
 
 #[derive(Clone)]
-pub struct ClientSession{
+pub struct ClientSessionV3 {
     sender: Sender<LinkMessage>,
 }
 
 #[async_trait]
-impl MqttSession for ClientSession {
-    async fn publish(&self, msg: &PublishMessage) {
+impl MqttSession for ClientSessionV3 {
+    async fn publish(&self, msg: &PublishMessage) {}
 
-    }
+    async fn subscribe(&self, topic: &String) {}
 
-    async fn subscribe(&self, topic: &String) {
+    async fn exit(&self) {}
 
-    }
-
-    async fn exit(&self) {
-
-    }
+    async fn send(&self, msg: Vec<u8>) {}
 }
 
-impl ClientSession {
-    pub fn new(sender: Sender<LinkMessage>) -> ClientSession {
-        ClientSession {
+impl ClientSessionV3 {
+    pub fn new(sender: Sender<LinkMessage>) -> ClientSessionV3 {
+        ClientSessionV3 {
             sender
         }
     }
 }
 
 #[derive(Clone)]
-pub struct ServerSession {
+pub struct ServerSessionV3 {
     sender: Sender<LinkMessage>,
     clean_session: Option<MqttCleanSession>,
     client_id: Option<ClientID>,
@@ -77,9 +74,9 @@ pub struct ServerSession {
     will_message: Option<String>,
 }
 
-impl ServerSession {
-    pub fn new(sender: Sender<LinkMessage>) -> ServerSession {
-        ServerSession {
+impl ServerSessionV3 {
+    pub fn new(sender: Sender<LinkMessage>) -> ServerSessionV3 {
+        ServerSessionV3 {
             client_id: None,
             protocol_name: None,
             protocol_level: None,
@@ -172,7 +169,7 @@ impl ServerSession {
 }
 
 #[async_trait]
-impl MqttSession for ServerSession {
+impl MqttSession for ServerSessionV3 {
     async fn publish(&self, msg: &PublishMessage) {
         let topic_msg = TopicMessage::Content(self.get_client_id().to_owned(), msg.clone());
         println!("topic: {:?}", topic_msg);
@@ -194,5 +191,9 @@ impl MqttSession for ServerSession {
 
     async fn exit(&self) {
         self.sender.send(LinkMessage::ExitMessage(true)).await;
+    }
+
+    async fn send(&self, msg: Vec<u8>) {
+        self.sender.send(LinkMessage::OutputMessage(msg)).await;
     }
 }

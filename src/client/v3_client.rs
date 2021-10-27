@@ -15,15 +15,15 @@ use crate::client::MqttClientOption;
 use crate::message::MqttMessageKind;
 use crate::message::entity::{ConnectMessage, PingreqMessage};
 use crate::server::ServerHandleKind;
-use crate::session::{LinkHandle, LinkMessage, ClientSession};
+use crate::session::{LinkHandle, LinkMessage, ClientSessionV3};
 use crate::session::v3_client_link::Link;
 use crate::tools::config::Config;
 use crate::tools::protocol::MqttCleanSession;
 
 struct MqttClient<F, Fut>
     where
-        F: Fn(ClientSession, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
-        Fut: Future<Output=Option<ServerHandleKind>> + Send,
+        F: Fn(ClientSessionV3, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
+        Fut: Future<Output=()> + Send,
 {
     config: Config,
     address: SocketAddr,
@@ -34,8 +34,8 @@ struct MqttClient<F, Fut>
 
 impl<F, Fut> MqttClient<F, Fut>
     where
-        F: Fn(ClientSession, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
-        Fut: Future<Output=Option<ServerHandleKind>> + Send,
+        F: Fn(ClientSessionV3, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
+        Fut: Future<Output=()> + Send,
 {
     pub fn new(config: Config, address: SocketAddr) -> MqttClient<F, Fut> {
         MqttClient { config, address, handle: None, sender: None, option: None }
@@ -77,7 +77,7 @@ impl<F, Fut> MqttClient<F, Fut>
     fn init_link(&mut self) -> Link {
         let (sender, receiver) = mpsc::channel(512);
         self.sender = Some(sender.clone());
-        let link = Link::new(ClientSession::new(sender), receiver);
+        let link = Link::new(ClientSessionV3::new(sender), receiver);
         link
     }
 
@@ -132,8 +132,8 @@ impl<F, Fut> MqttClient<F, Fut>
 
 async fn run<S, F, Fut>(mut stream: S, handle: F, mut link: Link, config: Config)
     where
-        F: Fn(ClientSession, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
-        Fut: Future<Output=Option<ServerHandleKind>> + Send,
+        F: Fn(ClientSessionV3, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
+        Fut: Future<Output=()> + Send,
         S: AsyncReadExt + AsyncWriteExt + Unpin
 {
     let msg = ConnectMessage::new(MqttCleanSession::Enable, config);

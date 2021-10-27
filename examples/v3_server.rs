@@ -5,7 +5,7 @@ use mqtt_demo::message::MqttMessageKind;
 use mqtt_demo::message::v3::MqttMessageV3;
 use mqtt_demo::server::ServerHandleKind;
 use mqtt_demo::server::v3_server::MqttServer;
-use mqtt_demo::session::{MqttSession, ClientSession, ServerSession};
+use mqtt_demo::session::{MqttSession, ServerSessionV3};
 use mqtt_demo::tools::protocol::MqttQos;
 
 #[tokio::main]
@@ -21,15 +21,15 @@ async fn main() {
         .await;
 }
 
-pub async fn handle_v3_message(session: ServerSession, v3_kind: Option<MqttMessageKind>) -> Option<ServerHandleKind> {
+pub async fn handle_v3_message(session: ServerSessionV3, v3_kind: Option<MqttMessageKind>) {
     if let Some(v3) = v3_kind {
-        return match v3 {
+        match v3 {
             MqttMessageKind::RequestV3(ref msg) => {
                 let res_msg = handle_v3(&session, Some(msg)).await.expect("handle v3 message error");
                 if res_msg.is_disconnect() {
-                    Some(ServerHandleKind::Exit)
+                    session.exit().await;
                 } else {
-                    Some(ServerHandleKind::Response(res_msg.to_vec().unwrap()))
+                    session.send(res_msg.to_vec().unwrap()).await
                 }
             }
             MqttMessageKind::RequestV3Vec(ref items) => {
@@ -39,15 +39,14 @@ pub async fn handle_v3_message(session: ServerSession, v3_kind: Option<MqttMessa
                         res.push(res_msg.to_vec().unwrap());
                     }
                 }
-                Some(ServerHandleKind::Response(res.concat()))
+                session.send(res.concat()).await
             }
-            _ => None
+            _ => {}
         };
     }
-    None
 }
 
-async fn handle_v3(session: &ServerSession, kind_opt: Option<&MqttMessageV3>) -> Option<MqttMessageV3> {
+async fn handle_v3(session: &ServerSessionV3, kind_opt: Option<&MqttMessageV3>) -> Option<MqttMessageV3> {
     if let Some(kind) = kind_opt {
         return match kind {
             MqttMessageV3::Connect(_) => {

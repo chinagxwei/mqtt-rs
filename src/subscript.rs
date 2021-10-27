@@ -47,8 +47,7 @@ impl PartialEq for ClientID {
 
 #[derive(Debug, Clone)]
 pub enum TopicMessage {
-    Content(ClientID, PublishMessage),
-    Will(PublishMessage),
+    Content(ClientID, PublishMessage)
 }
 
 impl TopicMessage {

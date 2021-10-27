@@ -139,7 +139,7 @@ impl SubscribeMessage {
             protocol_level: None,
             message_id,
             topic,
-            qos:Some(qos),
+            qos: Some(qos),
             no_local: None,
             retain_as_published: None,
             retain_handling: None,
@@ -576,5 +576,57 @@ impl CommonPayloadMessage {
 impl MqttMessageType for CommonPayloadMessage {
     fn get_message_type(&self) -> TypeKind {
         self.msg_type
+    }
+}
+
+impl From<CommonPayloadMessage> for PubackMessage {
+    fn from(msg: CommonPayloadMessage) -> Self {
+        PubackMessage {
+            msg_type: TypeKind::PUBACK,
+            protocol_level: None,
+            message_id: msg.message_id,
+            code: Some(msg.code),
+            properties: msg.properties,
+            bytes: msg.bytes,
+        }
+    }
+}
+
+impl From<CommonPayloadMessage> for PubrecMessage {
+    fn from(msg: CommonPayloadMessage) -> Self {
+        PubrecMessage {
+            msg_type: TypeKind::PUBACK,
+            protocol_level: None,
+            message_id: msg.message_id,
+            code: Some(msg.code),
+            properties: msg.properties,
+            bytes: msg.bytes,
+        }
+    }
+}
+
+impl From<CommonPayloadMessage> for PubrelMessage {
+    fn from(msg: CommonPayloadMessage) -> Self {
+        PubrelMessage {
+            msg_type: TypeKind::PUBACK,
+            protocol_level: None,
+            message_id: msg.message_id,
+            code: Some(msg.code),
+            properties: msg.properties,
+            bytes: msg.bytes,
+        }
+    }
+}
+
+impl From<CommonPayloadMessage> for PubcompMessage {
+    fn from(msg: CommonPayloadMessage) -> Self {
+        PubcompMessage {
+            msg_type: TypeKind::PUBACK,
+            protocol_level: None,
+            message_id: msg.message_id,
+            code: Some(msg.code),
+            properties: msg.properties,
+            bytes: msg.bytes,
+        }
     }
 }

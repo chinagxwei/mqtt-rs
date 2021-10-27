@@ -343,25 +343,25 @@ pub fn auth(base: BaseMessage) -> MqttMessageV5 {
 
 pub fn puback(base: BaseMessage) -> MqttMessageV5 {
     MqttMessageV5::Puback(
-        get_reason_code(base)
+        get_reason_code(base).into()
     )
 }
 
 pub fn pubrec(base: BaseMessage) -> MqttMessageV5 {
     MqttMessageV5::Pubrec(
-        get_reason_code(base)
+        get_reason_code(base).into()
     )
 }
 
 pub fn pubrel(base: BaseMessage) -> MqttMessageV5 {
     MqttMessageV5::Pubrel(
-        get_reason_code(base)
+        get_reason_code(base).into()
     )
 }
 
 pub fn pubcomp(base: BaseMessage) -> MqttMessageV5 {
     MqttMessageV5::Pubcomp(
-        get_reason_code(base)
+        get_reason_code(base).into()
     )
 }
 
