@@ -5,7 +5,7 @@ use mqtt_demo::message::MqttMessageKind;
 use mqtt_demo::message::v3::MqttMessageV3;
 use mqtt_demo::server::ServerHandleKind;
 use mqtt_demo::server::v3_server::MqttServer;
-use mqtt_demo::session::{MqttSession, Session};
+use mqtt_demo::session::{MqttSession, ClientSession, ServerSession};
 use mqtt_demo::tools::protocol::MqttQos;
 
 #[tokio::main]
@@ -21,7 +21,7 @@ async fn main() {
         .await;
 }
 
-pub async fn handle_v3_message(session: Session, v3_kind: Option<MqttMessageKind>) -> Option<ServerHandleKind> {
+pub async fn handle_v3_message(session: ServerSession, v3_kind: Option<MqttMessageKind>) -> Option<ServerHandleKind> {
     if let Some(v3) = v3_kind {
         return match v3 {
             MqttMessageKind::RequestV3(ref msg) => {
@@ -47,7 +47,7 @@ pub async fn handle_v3_message(session: Session, v3_kind: Option<MqttMessageKind
     None
 }
 
-async fn handle_v3(session: &Session, kind_opt: Option<&MqttMessageV3>) -> Option<MqttMessageV3> {
+async fn handle_v3(session: &ServerSession, kind_opt: Option<&MqttMessageV3>) -> Option<MqttMessageV3> {
     if let Some(kind) = kind_opt {
         return match kind {
             MqttMessageV3::Connect(_) => {

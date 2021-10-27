@@ -13,9 +13,10 @@ pub mod v3_client_link;
 
 #[async_trait]
 pub trait LinkHandle {
+    type Ses: MqttSession;
     async fn handle<F, Fut>(&mut self, f: F) -> Option<ServerHandleKind>
         where
-            F: Fn(Session, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
+            F: Fn(Self::Ses, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
             Fut: Future<Output=Option<ServerHandleKind>> + Send;
 }
 
@@ -35,7 +36,35 @@ pub enum LinkMessage {
 }
 
 #[derive(Clone)]
-pub struct Session {
+pub struct ClientSession{
+    sender: Sender<LinkMessage>,
+}
+
+#[async_trait]
+impl MqttSession for ClientSession {
+    async fn publish(&self, msg: &PublishMessage) {
+
+    }
+
+    async fn subscribe(&self, topic: &String) {
+
+    }
+
+    async fn exit(&self) {
+
+    }
+}
+
+impl ClientSession {
+    pub fn new(sender: Sender<LinkMessage>) -> ClientSession {
+        ClientSession {
+            sender
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct ServerSession {
     sender: Sender<LinkMessage>,
     clean_session: Option<MqttCleanSession>,
     client_id: Option<ClientID>,
@@ -48,9 +77,9 @@ pub struct Session {
     will_message: Option<String>,
 }
 
-impl Session {
-    pub fn new(sender: Sender<LinkMessage>) -> Session {
-        Session {
+impl ServerSession {
+    pub fn new(sender: Sender<LinkMessage>) -> ServerSession {
+        ServerSession {
             client_id: None,
             protocol_name: None,
             protocol_level: None,
@@ -143,7 +172,7 @@ impl Session {
 }
 
 #[async_trait]
-impl MqttSession for Session {
+impl MqttSession for ServerSession {
     async fn publish(&self, msg: &PublishMessage) {
         let topic_msg = TopicMessage::Content(self.get_client_id().to_owned(), msg.clone());
         println!("topic: {:?}", topic_msg);

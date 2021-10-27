@@ -3,28 +3,28 @@ use async_trait::async_trait;
 use tokio::sync::mpsc::Receiver;
 use crate::message::{BaseMessage, MqttMessageKind};
 use crate::server::ServerHandleKind;
-use crate::session::{LinkHandle, LinkMessage, Session};
+use crate::session::{LinkHandle, LinkMessage, MqttSession, ClientSession};
 
 pub struct Link {
-    session: Session,
+    session: ClientSession,
     receiver: Receiver<LinkMessage>,
 }
 
 impl Link {
-    pub fn new(session: Session, receiver: Receiver<LinkMessage>) -> Link {
+    pub fn new(session: ClientSession, receiver: Receiver<LinkMessage>) -> Link {
         Link {
             session,
             receiver,
         }
     }
 
-    pub fn session(&self) -> &Session {
+    pub fn session(&self) -> &ClientSession {
         &self.session
     }
 
     pub async fn send_message(&self, msg: LinkMessage) {
         // self.session.sender.send(msg).await;
-        if let Err(e) = self.session.sender.send(msg).await{
+        if let Err(e) = self.session.sender.send(msg).await {
             println!("failed to send message; err = {:?}", e);
         }
     }
@@ -32,9 +32,11 @@ impl Link {
 
 #[async_trait]
 impl LinkHandle for Link {
+    type Ses = ClientSession;
+
     async fn handle<F, Fut>(&mut self, f: F) -> Option<ServerHandleKind>
         where
-            F: Fn(Session, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
+            F: Fn(Self::Ses, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
             Fut: Future<Output=Option<ServerHandleKind>> + Send
     {
         return match self.receiver.recv().await {
@@ -47,7 +49,7 @@ impl LinkHandle for Link {
                     }
                     LinkMessage::OutputMessage(data) => {
                         Some(ServerHandleKind::Response(data))
-                    },
+                    }
                     LinkMessage::ExitMessage(_) => {
                         Some(ServerHandleKind::Exit)
                     }
@@ -56,6 +58,5 @@ impl LinkHandle for Link {
             }
             _ => None,
         };
-
     }
 }

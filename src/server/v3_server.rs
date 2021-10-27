@@ -7,14 +7,14 @@ use tokio_rustls::rustls;
 use crate::message::MqttMessageKind;
 use crate::server::{MqttServerOption, ServerHandleKind};
 use crate::session::v3_server_link::Link;
-use crate::session::{LinkMessage, Session};
+use crate::session::{LinkMessage, ServerSession};
 use crate::session::LinkHandle;
 use crate::tools::tls::{load_certs, load_keys};
 use tokio_rustls::TlsAcceptor;
 
 pub struct MqttServer<F, Fut>
     where
-        F: Fn(Session, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
+        F: Fn(ServerSession, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
         Fut: Future<Output=Option<ServerHandleKind>> + Send,
 {
     addr: SocketAddr,
@@ -24,7 +24,7 @@ pub struct MqttServer<F, Fut>
 
 impl<F, Fut> MqttServer<F, Fut>
     where
-        F: Fn(Session, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
+        F: Fn(ServerSession, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
         Fut: Future<Output=Option<ServerHandleKind>> + Send,
 {
     pub fn new(addr: SocketAddr) -> MqttServer<F, Fut> {
@@ -81,7 +81,7 @@ impl<F, Fut> MqttServer<F, Fut>
 
 async fn run<S, F, Fut>(mut stream: S, handle: F)
     where
-        F: Fn(Session, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
+        F: Fn(ServerSession, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
         Fut: Future<Output=Option<ServerHandleKind>> + Send,
         S: AsyncReadExt + AsyncWriteExt + Unpin
 {

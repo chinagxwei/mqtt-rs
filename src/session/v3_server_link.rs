@@ -2,7 +2,7 @@ use crate::message::v3::MqttMessageV3::*;
 use crate::message::MqttMessageKind::*;
 use crate::message::{
     BaseMessage, MqttMessageKind};
-use crate::session::{LinkHandle, LinkMessage, Session};
+use crate::session::{LinkHandle, LinkMessage, MqttSession, ServerSession};
 use crate::subscript::TopicMessage;
 use crate::tools::protocol::{MqttCleanSession, MqttQos};
 use crate::{SUBSCRIPT, MESSAGE_CONTAINER};
@@ -15,7 +15,7 @@ use crate::container::MessageFrame;
 use crate::message::v3::MqttMessageV3;
 
 pub struct Link {
-    session: Session,
+    session: ServerSession,
     receiver: Receiver<LinkMessage>,
 }
 
@@ -23,12 +23,12 @@ impl Link {
     pub fn new() -> Link {
         let (sender, receiver) = mpsc::channel(512);
         Link {
-            session: Session::new(sender),
+            session: ServerSession::new(sender),
             receiver,
         }
     }
 
-    pub fn session(&self) -> &Session {
+    pub fn session(&self) -> &ServerSession {
         &self.session
     }
 
@@ -42,10 +42,12 @@ impl Link {
 
 #[async_trait]
 impl LinkHandle for Link {
+    type Ses = ServerSession;
+
     async fn handle<F, Fut>(&mut self, f: F) -> Option<ServerHandleKind>
         where
-            F: Fn(Session, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
-            Fut: Future<Output=Option<ServerHandleKind>> + Send
+            F: Fn(Self::Ses, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
+            Fut: Future<Output=Option<ServerHandleKind>> + Send,
     {
         return match self.receiver.recv().await {
             Some(msg) => return match msg {
@@ -102,7 +104,7 @@ impl LinkHandle for Link {
     }
 }
 
-async fn handle_v3_request(base_msg: BaseMessage, session: &mut Session) -> Option<MqttMessageKind> {
+async fn handle_v3_request(base_msg: BaseMessage, session: &mut ServerSession) -> Option<MqttMessageKind> {
     let mut v3_request = MqttMessageKind::v3(base_msg);
     if let Some(kind) = v3_request.as_mut() {
         match kind {
