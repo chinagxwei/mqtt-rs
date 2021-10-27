@@ -1,27 +1,18 @@
-use crate::message::v3;
 use crate::message::v3::MqttMessageV3::*;
-use crate::message::v3::{
-    ConnackMessage, DisconnectMessage, MqttMessageV3, PubackMessage, ConnectMessage,
-    PublishMessage, SubackMessage, SubscribeMessage, UnsubackMessage, UnsubscribeMessage,
-};
 use crate::message::MqttMessageKind::*;
 use crate::message::{
-    BaseMessage, MqttBytesMessage, MqttMessageKind, MqttMessageType,
-};
+    BaseMessage, MqttMessageKind};
 use crate::session::{LinkHandle, LinkMessage, Session};
-use crate::subscript::{ClientID, TopicMessage};
-use crate::tools::protocol::{MqttCleanSession, MqttDup, MqttProtocolLevel, MqttQos, MqttRetain, MqttWillFlag};
-use crate::tools::types::TypeKind;
+use crate::subscript::TopicMessage;
+use crate::tools::protocol::{MqttCleanSession, MqttQos};
 use crate::{SUBSCRIPT, MESSAGE_CONTAINER};
 use std::future::Future;
-use std::io::Read;
-use std::ops::{Deref, DerefMut};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::mpsc;
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::Receiver;
 use crate::server::ServerHandleKind;
 use async_trait::async_trait;
 use crate::container::MessageFrame;
+use crate::message::v3::MqttMessageV3;
 
 pub struct Link {
     session: Session,
@@ -65,7 +56,7 @@ impl LinkHandle for Link {
                 }
                 LinkMessage::HandleMessage(msg) => {
                     match msg {
-                        TopicMessage::ContentV3(from_id, content) => {
+                        TopicMessage::Content(from_id, content) => {
                             let client_id = self.session().get_client_id();
                             println!("from: {:?}", from_id);
                             println!("to: {:?}", client_id);
@@ -81,15 +72,16 @@ impl LinkHandle for Link {
                                     ),
                                 ).await;
                             }
+
                             if client_id != &from_id {
                                 return Some(ServerHandleKind::Response(
-                                    content.as_bytes().to_vec(),
+                                    MqttMessageV3::Publish(content).to_vec().unwrap()
                                 ));
                             }
                             None
                         }
-                        TopicMessage::WillV3(content) => {
-                            Some(ServerHandleKind::Response(content.as_bytes().to_vec()))
+                        TopicMessage::Will(content) => {
+                            Some(ServerHandleKind::Response(MqttMessageV3::Publish(content).to_vec().unwrap()))
                         }
                         _ => None,
                     }
@@ -151,8 +143,8 @@ async fn handle_v3_request(base_msg: BaseMessage, session: &mut Session) -> Opti
                         }
                         SUBSCRIPT.exit(session.get_client_id()).await;
 
-                        if session.clean_session.unwrap() == MqttCleanSession::Enable {
-                            MESSAGE_CONTAINER.remove(session.get_client_id());
+                        if session.clean_session.is_some() && session.clean_session.unwrap() == MqttCleanSession::Enable {
+                            MESSAGE_CONTAINER.remove(session.get_client_id()).await;
                         }
                         msg.protocol_level = session.protocol_level;
                     }
@@ -164,7 +156,7 @@ async fn handle_v3_request(base_msg: BaseMessage, session: &mut Session) -> Opti
                     Subscribe(msg) => msg.protocol_level = session.protocol_level,
                     Suback(msg) => msg.protocol_level = session.protocol_level,
                     Unsuback(msg) => msg.protocol_level = session.protocol_level,
-                    _=>{}
+                    _ => {}
                 }
             }
             _ => {}

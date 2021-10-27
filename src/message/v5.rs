@@ -1,9 +1,7 @@
-use crate::tools::types::TypeKind;
-use crate::tools::protocol::{MqttProtocolLevel, MqttCleanSession, MqttWillFlag, MqttQos, MqttRetain, MqttSessionPresent, MqttDup, MqttRetainAsPublished, MqttNoLocal};
-use crate::hex::{PropertyItem, Property, PropertyValue};
-use crate::message::{ConnectMessagePayload, BaseMessage, MqttMessageType, MqttBytesMessage, PingreqMessage, PingrespMessage, WillField};
-use crate::packet::{v5_packet, v5_unpacket};
-use crate::hex::reason_code::{ReasonPhrases, ReasonCodeV5};
+use crate::message::MqttMessageType;
+use crate::packet::{v5_packet};
+use crate::message::entity::{AuthMessage, CommonPayloadMessage, ConnackMessage, ConnectMessage, DisconnectMessage, PingreqMessage, PingrespMessage, PublishMessage, SubackMessage, SubscribeMessage, UnsubackMessage, UnsubscribeMessage};
+use crate::tools::pack_tool::pack_header;
 
 
 #[derive(Debug, Clone)]
@@ -25,422 +23,87 @@ pub enum MqttMessageV5 {
     Auth(AuthMessage),
 }
 
-#[derive(Debug, Clone)]
-pub struct ConnectMessage {
-    pub msg_type: TypeKind,
-    pub protocol_name: String,
-    pub protocol_level: MqttProtocolLevel,
-    pub clean_session: MqttCleanSession,
-    pub will_flag: MqttWillFlag,
-    pub will_qos: MqttQos,
-    pub will_retain: MqttRetain,
-    pub keep_alive: u16,
-    pub payload: ConnectMessagePayload,
-    pub properties: Option<Vec<PropertyItem>>,
-    pub bytes: Option<Vec<u8>>,
-}
+impl MqttMessageV5 {
+    pub fn is_connect(&self) -> bool {
+        matches!(self, MqttMessageV5::Connect(_))
+    }
 
-impl From<BaseMessage> for ConnectMessage {
-    fn from(base: BaseMessage) -> Self {
-        v5_unpacket::connect(base)
+    pub fn is_cannack(&self) -> bool {
+        matches!(self, MqttMessageV5::Connack(_))
+    }
+
+    pub fn is_publish(&self) -> bool {
+        matches!(self, MqttMessageV5::Publish(_))
+    }
+
+    pub fn is_puback(&self) -> bool {
+        matches!(self, MqttMessageV5::Puback(_))
+    }
+
+    pub fn is_pubrec(&self) -> bool {
+        matches!(self, MqttMessageV5::Pubrec(_))
+    }
+
+    pub fn is_pubrel(&self) -> bool {
+        matches!(self, MqttMessageV5::Pubrel(_))
+    }
+
+    pub fn is_pubcomp(&self) -> bool {
+        matches!(self, MqttMessageV5::Pubcomp(_))
+    }
+
+    pub fn is_subscribe(&self) -> bool {
+        matches!(self, MqttMessageV5::Subscribe(_))
+    }
+
+    pub fn is_suback(&self) -> bool {
+        matches!(self, MqttMessageV5::Suback(_))
+    }
+
+    pub fn is_unsubscribe(&self) -> bool {
+        matches!(self, MqttMessageV5::Unsubscribe(_))
+    }
+
+    pub fn is_unsuback(&self) -> bool {
+        matches!(self, MqttMessageV5::Unsuback(_))
+    }
+
+    pub fn is_pingreq(&self) -> bool {
+        matches!(self, MqttMessageV5::Pingreq(_))
+    }
+
+    pub fn is_pingresp(&self) -> bool {
+        matches!(self, MqttMessageV5::Pingresp(_))
+    }
+
+    pub fn is_disconnect(&self) -> bool {
+        matches!(self, MqttMessageV5::Disconnect(_))
+    }
+
+    pub fn is_auth(&self) -> bool {
+        matches!(self, MqttMessageV5::Disconnect(_))
     }
 }
 
-impl MqttMessageType for ConnectMessage {
-    fn get_message_type(&self) -> TypeKind {
-        self.msg_type
-    }
-}
-
-impl MqttBytesMessage for ConnectMessage {
-    fn as_bytes(&self) -> &[u8] {
-        self.bytes.as_ref().unwrap()
-    }
-}
-
-impl WillField for ConnectMessage {
-    fn topic_str(&self) -> Option<&String> {
-        self.payload.will_topic.as_ref()
-    }
-
-    fn message_str(&self) -> Option<&String> {
-        self.payload.will_message.as_ref()
-    }
-
-    fn username_str(&self) -> Option<&String> {
-        self.payload.user_name.as_ref()
-    }
-
-    fn password_str(&self) -> Option<&String> {
-        self.payload.password.as_ref()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct ConnackMessage {
-    pub msg_type: TypeKind,
-    pub session_present: MqttSessionPresent,
-    pub return_code: u8,
-    pub properties: Option<Vec<PropertyItem>>,
-    pub bytes: Vec<u8>,
-}
-
-impl MqttMessageType for ConnackMessage {
-    fn get_message_type(&self) -> TypeKind {
-        self.msg_type
-    }
-}
-
-impl MqttBytesMessage for ConnackMessage {
-    fn as_bytes(&self) -> &[u8] {
-        self.bytes.as_slice()
-    }
-}
-
-impl From<BaseMessage> for ConnackMessage {
-    fn from(base: BaseMessage) -> Self {
-        v5_unpacket::connack(base)
-    }
-}
-
-impl Default for ConnackMessage {
-    fn default() -> Self {
-        let properties = Some(
-            vec![
-                PropertyItem(Property::MaximumPacketSize, PropertyValue::Long(1048576)),
-                PropertyItem(Property::RetainAvailable, PropertyValue::Byte(1)),
-                PropertyItem(Property::SharedSubscriptionAvailable, PropertyValue::Byte(1)),
-                PropertyItem(Property::SubscriptionIdentifierAvailable, PropertyValue::Byte(1)),
-                PropertyItem(Property::TopicAliasMaximum, PropertyValue::Short(65535)),
-                PropertyItem(Property::WildcardSubscriptionAvailable, PropertyValue::Byte(1)),
-            ]
-        );
-        let bytes = v5_packet::connack(
-            MqttSessionPresent::Disable,
-            ReasonCodeV5::ReasonPhrases(ReasonPhrases::Success),
-            properties.as_ref(),
-        );
-        ConnackMessage {
-            msg_type: TypeKind::CONNACK,
-            session_present: MqttSessionPresent::Disable,
-            return_code: ReasonPhrases::Success.as_byte(),
-            properties,
-            bytes,
+impl MqttMessageV5 {
+    pub fn to_vec(&self) -> Option<Vec<u8>> {
+        match self {
+            MqttMessageV5::Connect(msg) => { Some(v5_packet::connect(msg)) }
+            MqttMessageV5::Connack(msg) => { Some(v5_packet::connack(msg.session_present, msg.return_code.unwrap(), msg.properties.as_ref())) }
+            MqttMessageV5::Publish(msg) => { Some(v5_packet::publish(msg)) }
+            MqttMessageV5::Puback(msg) => { Some(v5_packet::common(msg.message_id, msg.code.as_byte(), msg.properties.as_ref(), msg.get_message_type())) }
+            MqttMessageV5::Pubrec(msg) => { Some(v5_packet::common(msg.message_id, msg.code.as_byte(), msg.properties.as_ref(), msg.get_message_type())) }
+            MqttMessageV5::Pubrel(msg) => { Some(v5_packet::common(msg.message_id, msg.code.as_byte(), msg.properties.as_ref(), msg.get_message_type())) }
+            MqttMessageV5::Pubcomp(msg) => { Some(v5_packet::common(msg.message_id, msg.code.as_byte(), msg.properties.as_ref(), msg.get_message_type())) }
+            MqttMessageV5::Subscribe(msg) => { Some(v5_packet::subscribe(msg)) }
+            MqttMessageV5::Suback(msg) => { Some(v5_packet::suback(msg)) }
+            MqttMessageV5::Unsubscribe(msg) => { Some(v5_packet::unsubscribe(msg)) }
+            MqttMessageV5::Unsuback(msg) => { Some(v5_packet::common(msg.message_id, msg.code.unwrap(), msg.properties.as_ref(), msg.get_message_type())) }
+            MqttMessageV5::Pingreq(msg) => { Some(pack_header(msg.get_message_type(), 0)) }
+            MqttMessageV5::Pingresp(msg) => { Some(pack_header(msg.get_message_type(), 0)) }
+            MqttMessageV5::Disconnect(msg) => { Some(pack_header(msg.get_message_type(), 0)) }
+            MqttMessageV5::Auth(msg) => { Some(v5_packet::auth(msg)) }
         }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct PublishMessage {
-    pub msg_type: TypeKind,
-    pub message_id: u16,
-    pub topic: String,
-    pub dup: MqttDup,
-    pub qos: MqttQos,
-    pub retain: MqttRetain,
-    pub msg_body: String,
-    pub properties: Option<Vec<PropertyItem>>,
-    pub bytes: Option<Vec<u8>>,
-}
-
-impl MqttMessageType for PublishMessage {
-    fn get_message_type(&self) -> TypeKind {
-        self.msg_type
-    }
-}
-
-impl MqttBytesMessage for PublishMessage {
-    fn as_bytes(&self) -> &[u8] {
-        self.bytes.as_ref().unwrap()
-    }
-}
-
-impl From<BaseMessage> for PublishMessage {
-    fn from(base: BaseMessage) -> Self {
-        v5_unpacket::publish(base)
-    }
-}
-
-impl PublishMessage {
-    pub fn new(qos: MqttQos, dup: MqttDup, retain: MqttRetain, topic: String, message_id: u16, message_body: String, properties: Option<Vec<PropertyItem>>) -> PublishMessage {
-        let mut msg = PublishMessage {
-            msg_type: TypeKind::PUBLISH,
-            message_id,
-            topic,
-            dup,
-            qos,
-            retain,
-            msg_body: message_body,
-            properties,
-            bytes: None,
-        };
-        msg.bytes = Some(v5_packet::publish(&msg));
-        msg
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct SubscribeMessage {
-    pub msg_type: TypeKind,
-    pub message_id: u16,
-    pub topic: String,
-    pub qos: Option<MqttQos>,
-    pub no_local: Option<MqttNoLocal>,
-    pub retain_as_published: Option<MqttRetainAsPublished>,
-    pub retain_handling: Option<u8>,
-    pub properties: Option<Vec<PropertyItem>>,
-    pub bytes: Option<Vec<u8>>,
-}
-
-impl MqttMessageType for SubscribeMessage {
-    fn get_message_type(&self) -> TypeKind {
-        self.msg_type
-    }
-}
-
-impl MqttBytesMessage for SubscribeMessage {
-    fn as_bytes(&self) -> &[u8] {
-        &self.bytes.as_ref().unwrap()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct UnsubscribeMessage {
-    pub msg_type: TypeKind,
-    pub message_id: u16,
-    pub topic: String,
-    pub properties: Option<Vec<PropertyItem>>,
-    pub bytes: Option<Vec<u8>>,
-}
-
-impl MqttMessageType for UnsubscribeMessage {
-    fn get_message_type(&self) -> TypeKind {
-        self.msg_type
-    }
-}
-
-impl MqttBytesMessage for UnsubscribeMessage {
-    fn as_bytes(&self) -> &[u8] {
-        &self.bytes.as_ref().unwrap()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct SubackMessage {
-    pub msg_type: TypeKind,
-    pub message_id: u16,
-    pub codes: Vec<u8>,
-    pub properties: Option<Vec<PropertyItem>>,
-    pub bytes: Option<Vec<u8>>,
-}
-
-impl MqttMessageType for SubackMessage {
-    fn get_message_type(&self) -> TypeKind {
-        self.msg_type
-    }
-}
-
-impl MqttBytesMessage for SubackMessage {
-    fn as_bytes(&self) -> &[u8] {
-        &self.bytes.as_ref().unwrap()
-    }
-}
-
-impl From<BaseMessage> for SubackMessage {
-    fn from(base: BaseMessage) -> Self {
-        v5_unpacket::suback(base)
-    }
-}
-
-impl From<SubscribeMessage> for SubackMessage {
-    fn from(smsg: SubscribeMessage) -> Self {
-        let codes = if (smsg.qos.unwrap() as u32) < 3 {
-            smsg.qos.unwrap().as_byte().to_ne_bytes().to_vec()
-        } else {
-            ReasonPhrases::QosNotSupported.as_byte().to_ne_bytes().to_vec()
-        };
-        let mut msg = SubackMessage {
-            msg_type: TypeKind::SUBACK,
-            message_id: smsg.message_id,
-            codes,
-            properties: Some(Vec::default()),
-            bytes: None,
-        };
-        msg.bytes = Some(v5_packet::suback(&msg));
-        msg
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct UnsubackMessage {
-    pub msg_type: TypeKind,
-    pub message_id: u16,
-    pub codes: Vec<u8>,
-    pub properties: Option<Vec<PropertyItem>>,
-    pub bytes: Option<Vec<u8>>,
-}
-
-impl MqttMessageType for UnsubackMessage {
-    fn get_message_type(&self) -> TypeKind {
-        self.msg_type
-    }
-}
-
-impl MqttBytesMessage for UnsubackMessage {
-    fn as_bytes(&self) -> &[u8] {
-        &self.bytes.as_ref().unwrap()
-    }
-}
-
-impl From<BaseMessage> for UnsubackMessage {
-    fn from(base: BaseMessage) -> Self {
-        v5_unpacket::unsuback(base)
-    }
-}
-
-impl From<UnsubscribeMessage> for UnsubackMessage {
-    fn from(msg: UnsubscribeMessage) -> Self {
-        UnsubackMessage::new(msg.message_id)
-    }
-}
-
-impl UnsubackMessage {
-    pub fn new(message_id: u16) -> Self {
-        let mut msg = UnsubackMessage {
-            msg_type: TypeKind::UNSUBACK,
-            message_id,
-            codes: ReasonPhrases::Success.as_byte().to_ne_bytes().to_vec(),
-            properties: Some(Vec::default()),
-            bytes: None,
-        };
-        msg.bytes = Some(v5_packet::unsuback(&msg));
-        msg
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct DisconnectMessage {
-    pub msg_type: TypeKind,
-    pub code: u8,
-    pub properties: Option<Vec<PropertyItem>>,
-    pub bytes: Vec<u8>,
-}
-
-impl DisconnectMessage {
-    pub fn new(code: ReasonPhrases, properties: Option<Vec<PropertyItem>>) -> DisconnectMessage {
-        let mut msg = DisconnectMessage {
-            msg_type: TypeKind::DISCONNECT,
-            code: code.as_byte(),
-            properties: if properties.is_some() { properties } else { Some(Vec::default()) },
-            bytes: vec![],
-        };
-        msg.bytes = v5_packet::disconnect(&msg);
-        msg
-    }
-}
-
-impl MqttMessageType for DisconnectMessage {
-    fn get_message_type(&self) -> TypeKind {
-        self.msg_type
-    }
-}
-
-impl MqttBytesMessage for DisconnectMessage {
-    fn as_bytes(&self) -> &[u8] {
-        &self.bytes.as_slice()
-    }
-}
-
-impl Default for DisconnectMessage {
-    fn default() -> Self {
-        let mut msg = DisconnectMessage {
-            msg_type: TypeKind::DISCONNECT,
-            code: ReasonPhrases::Success.as_byte(),
-            properties: Some(Vec::default()),
-            bytes: vec![],
-        };
-        msg.bytes = v5_packet::disconnect(&msg);
-        msg
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct AuthMessage {
-    pub msg_type: TypeKind,
-    pub code: u8,
-    pub properties: Option<Vec<PropertyItem>>,
-    pub bytes: Vec<u8>,
-}
-
-impl MqttMessageType for AuthMessage {
-    fn get_message_type(&self) -> TypeKind {
-        self.msg_type
-    }
-}
-
-impl MqttBytesMessage for AuthMessage {
-    fn as_bytes(&self) -> &[u8] {
-        &self.bytes.as_slice()
-    }
-}
-
-impl From<BaseMessage> for AuthMessage {
-    fn from(base: BaseMessage) -> Self {
-        v5_unpacket::auth(base)
-    }
-}
-
-impl Default for AuthMessage {
-    fn default() -> Self {
-        let mut msg = AuthMessage {
-            msg_type: TypeKind::AUTH,
-            code: ReasonPhrases::Success.as_byte(),
-            properties: Some(Vec::default()),
-            bytes: vec![],
-        };
-        msg.bytes = v5_packet::auth(&msg);
-        msg
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct CommonPayloadMessage {
-    pub msg_type: TypeKind,
-    pub message_id: u16,
-    pub code: ReasonPhrases,
-    pub properties: Option<Vec<PropertyItem>>,
-    pub bytes: Option<Vec<u8>>,
-}
-
-impl CommonPayloadMessage {
-    pub fn new(kind: TypeKind, message_id: u16) -> CommonPayloadMessage {
-        let mut msg = CommonPayloadMessage {
-            msg_type: kind,
-            message_id,
-            code: ReasonPhrases::Success,
-            properties: Some(Vec::default()),
-            bytes: None,
-        };
-        msg.bytes = Some(v5_packet::common(msg.message_id, msg.code, msg.properties.as_ref(), msg.msg_type));
-        msg
-    }
-}
-
-impl MqttMessageType for CommonPayloadMessage {
-    fn get_message_type(&self) -> TypeKind {
-        self.msg_type
-    }
-}
-
-impl MqttBytesMessage for CommonPayloadMessage {
-    fn as_bytes(&self) -> &[u8] {
-        &self.bytes.as_ref().unwrap()
-    }
-}
-
-impl From<BaseMessage> for CommonPayloadMessage {
-    fn from(base: BaseMessage) -> Self {
-        v5_unpacket::get_reason_code(base)
     }
 }
 

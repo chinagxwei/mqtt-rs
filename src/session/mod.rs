@@ -1,11 +1,11 @@
 use std::future::Future;
 use tokio::sync::mpsc::Sender;
-use crate::message::{BaseMessage, MqttMessageKind};
+use crate::message::MqttMessageKind;
 use crate::subscript::{ClientID, TopicMessage};
-use crate::tools::protocol::{MqttCleanSession, MqttDup, MqttProtocolLevel, MqttQos, MqttRetain, MqttWillFlag};
+use crate::tools::protocol::{MqttCleanSession, MqttProtocolLevel, MqttQos, MqttRetain, MqttWillFlag};
 use crate::server::ServerHandleKind;
 use async_trait::async_trait;
-use crate::message::v3::PublishMessage;
+use crate::message::entity::PublishMessage;
 use crate::SUBSCRIPT;
 
 pub mod v3_server_link;
@@ -145,7 +145,7 @@ impl Session {
 #[async_trait]
 impl MqttSession for Session {
     async fn publish(&self, msg: &PublishMessage) {
-        let topic_msg = TopicMessage::ContentV3(self.get_client_id().to_owned(), msg.clone());
+        let topic_msg = TopicMessage::Content(self.get_client_id().to_owned(), msg.clone());
         println!("topic: {:?}", topic_msg);
         SUBSCRIPT.broadcast(&msg.topic, &topic_msg).await;
     }

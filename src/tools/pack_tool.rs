@@ -1,6 +1,5 @@
 use crate::tools::types::TypeKind;
-use crate::tools::protocol::{MqttSessionPresent, MqttCleanSession, MqttWillFlag, MqttQos, MqttDup, MqttRetain, MqttUsernameFlag, MqttPasswordFlag};
-use crate::hex::reason_code::ReasonCodeV3;
+use crate::tools::protocol::{MqttCleanSession, MqttWillFlag, MqttQos, MqttDup, MqttRetain};
 use crate::message::WillField;
 
 ///

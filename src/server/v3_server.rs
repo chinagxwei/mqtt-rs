@@ -1,21 +1,13 @@
 use std::future::Future;
-use std::marker::PhantomData;
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
-use std::str::FromStr;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::mpsc;
-use tokio::sync::mpsc::Sender;
+use tokio::net::TcpListener;
 use tokio_rustls::rustls;
-use crate::message::{BaseMessage, MqttMessageKind};
-use crate::message::v3::{SubackMessage, DisconnectMessage, MqttMessageV3, PubackMessage, PublishMessage, SubscribeMessage, UnsubackMessage, UnsubscribeMessage};
+use crate::message::MqttMessageKind;
 use crate::server::{MqttServerOption, ServerHandleKind};
 use crate::session::v3_server_link::Link;
 use crate::session::{LinkMessage, Session};
-use crate::subscript::TopicMessage;
-use crate::tools::protocol::MqttQos;
-use crate::SUBSCRIPT;
 use crate::session::LinkHandle;
 use crate::tools::tls::{load_certs, load_keys};
 use tokio_rustls::TlsAcceptor;
@@ -67,7 +59,7 @@ impl<F, Fut> MqttServer<F, Fut>
             while let Ok((mut stream, _)) = listener.accept().await {
                 let handle_message = **self.handle.as_ref().unwrap();
                 let acceptor = acceptor.clone();
-                let mut stream = acceptor.accept(stream).await.expect("");
+                let stream = acceptor.accept(stream).await.expect("");
                 tokio::spawn(async move {
                     run(stream, handle_message).await;
                 });
@@ -78,7 +70,7 @@ impl<F, Fut> MqttServer<F, Fut>
     pub async fn start(&self) {
         if self.handle.is_none() { return; }
         let listener: TcpListener = TcpListener::bind(self.addr).await.expect("listener error");
-        while let Ok((mut stream, _)) = listener.accept().await {
+        while let Ok((stream, _)) = listener.accept().await {
             let handle_message = **self.handle.as_ref().unwrap();
             tokio::spawn(async move {
                 run(stream, handle_message).await;

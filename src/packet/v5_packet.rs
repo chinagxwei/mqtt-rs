@@ -1,9 +1,8 @@
-use crate::message::v5::{ConnectMessage, SubackMessage, UnsubackMessage, DisconnectMessage, AuthMessage, SubscribeMessage, CommonPayloadMessage, PublishMessage};
-use crate::tools::pack_tool::{pack_protocol_name, pack_connect_flags, pack_string, pack_short_int, pack_client_id, pack_header, pack_message_short_id, pack_publish_header};
+use crate::tools::pack_tool::{pack_connect_flags, pack_string, pack_short_int, pack_client_id, pack_header, pack_message_short_id, pack_publish_header};
 use crate::tools::protocol::{MqttWillFlag, MqttSessionPresent, MqttQos, MqttDup};
 use crate::hex::{pack_property, PropertyItem};
 use crate::tools::types::TypeKind;
-use crate::hex::reason_code::{ReasonCodeV5, ReasonPhrases};
+use crate::message::entity::{AuthMessage, ConnectMessage, DisconnectMessage, PublishMessage, SubackMessage, SubscribeMessage, UnsubackMessage, UnsubscribeMessage};
 
 pub fn connect(msg: &ConnectMessage) -> Vec<u8> {
     let mut body: Vec<u8> = pack_string(&msg.protocol_name);
@@ -60,8 +59,8 @@ pub fn connect(msg: &ConnectMessage) -> Vec<u8> {
     package
 }
 
-pub fn connack(session_present: MqttSessionPresent, return_code: ReasonCodeV5, properties: Option<&Vec<PropertyItem>>) -> Vec<u8> {
-    let mut body = vec![session_present as u8, return_code.as_byte()];
+pub fn connack(session_present: MqttSessionPresent, return_code: u8, properties: Option<&Vec<PropertyItem>>) -> Vec<u8> {
+    let mut body = vec![session_present as u8, return_code];
 
     if properties.is_some() {
         body.extend(pack_property::connack(properties.unwrap()));
@@ -94,46 +93,60 @@ pub fn publish(msg: &PublishMessage) -> Vec<u8> {
     package
 }
 
-pub fn subscribe(mut data: Vec<SubscribeMessage>) -> Vec<u8> {
-    let collect = data.iter_mut().map(|msg| {
-        let mut body = pack_message_short_id(msg.message_id);
+pub fn subscribe(msg: &SubscribeMessage) -> Vec<u8> {
+    let mut body = pack_message_short_id(msg.message_id);
 
-        if msg.properties.is_some() {
-            body.extend(pack_property::subscribe(msg.properties.as_ref().unwrap()));
-        }
+    if msg.properties.is_some() {
+        body.extend(pack_property::subscribe(msg.properties.as_ref().unwrap()));
+    }
 
-        let topic = pack_string(&msg.topic);
+    let topic = pack_string(&msg.topic);
 
-        body.extend(topic);
+    body.extend(topic);
 
-        let mut option = 0;
+    let mut option = 0;
 
-        if let Some(qos) = msg.qos {
-            option |= qos.as_byte();
-        }
+    if let Some(qos) = msg.qos {
+        option |= qos.as_byte();
+    }
 
-        if let Some(nl) = msg.no_local {
-            option |= (nl as u8) << 2;
-        }
+    if let Some(nl) = msg.no_local {
+        option |= (nl as u8) << 2;
+    }
 
-        if let Some(rap) = msg.retain_as_published {
-            option |= (rap as u8) << 3;
-        }
+    if let Some(rap) = msg.retain_as_published {
+        option |= (rap as u8) << 3;
+    }
 
-        if let Some(rh) = msg.retain_handling {
-            option |= rh << 4;
-        }
+    if let Some(rh) = msg.retain_handling {
+        option |= rh << 4;
+    }
 
-        body.push(option);
+    body.push(option);
 
-        let mut package = pack_header(TypeKind::SUBSCRIBE, body.len());
+    let mut package = pack_header(TypeKind::SUBSCRIBE, body.len());
 
-        package.extend(body);
+    package.extend(body);
 
-        package
-    }).collect::<Vec<Vec<u8>>>();
+    package
+}
 
-    collect.concat()
+pub fn unsubscribe(msg: &UnsubscribeMessage) -> Vec<u8> {
+    let mut body = pack_message_short_id(msg.message_id);
+
+    if msg.properties.is_some() {
+        body.extend(pack_property::unsubscribe(msg.properties.as_ref().unwrap()));
+    }
+
+    let topic = pack_string(&msg.topic);
+
+    body.extend(topic);
+
+    let mut package = pack_header(TypeKind::SUBSCRIBE, body.len());
+
+    package.extend(body);
+
+    package
 }
 
 pub fn suback(msg: &SubackMessage) -> Vec<u8> {
@@ -159,7 +172,7 @@ pub fn unsuback(msg: &UnsubackMessage) -> Vec<u8> {
         body.extend(pack_property::suback(msg.properties.as_ref().unwrap()));
     }
 
-    body.extend(msg.codes.clone());
+    body.push(msg.code.unwrap());
 
     let mut package = pack_header(TypeKind::UNSUBACK, body.len());
 
@@ -169,7 +182,7 @@ pub fn unsuback(msg: &UnsubackMessage) -> Vec<u8> {
 }
 
 pub fn disconnect(msg: &DisconnectMessage) -> Vec<u8> {
-    let mut body = msg.code.to_ne_bytes().to_vec();
+    let mut body = msg.code.as_ref().unwrap().to_ne_bytes().to_vec();
 
     if msg.properties.is_some() {
         body.extend(pack_property::disconnect(msg.properties.as_ref().unwrap()));
@@ -196,14 +209,14 @@ pub fn auth(msg: &AuthMessage) -> Vec<u8> {
     package
 }
 
-pub fn common(message_id: u16, code: ReasonPhrases, properties: Option<&Vec<PropertyItem>>, kind: TypeKind) -> Vec<u8> {
+pub fn common(message_id: u16, code: u8, properties: Option<&Vec<PropertyItem>>, kind: TypeKind) -> Vec<u8> {
     let mut body = pack_message_short_id(message_id);
 
     if properties.is_some() {
         body.extend(pack_property::suback(properties.unwrap()));
     }
 
-    body.push(code.as_byte());
+    body.push(code);
 
     let mut package = if kind.is_pubrel() {
         pack_publish_header(kind, body.len(), Option::from(MqttQos::Qos1), Option::from(MqttDup::Disable), None)

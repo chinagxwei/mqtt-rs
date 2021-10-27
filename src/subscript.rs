@@ -4,8 +4,7 @@ use tokio::sync::mpsc::Sender;
 
 use tokio::sync::Mutex;
 use crate::hex::{Property, PropertyItem, PropertyValue};
-use crate::message::v3;
-use crate::message::v5;
+use crate::message::entity::PublishMessage;
 use crate::session::LinkMessage;
 use crate::tools::protocol::{MqttDup, MqttQos, MqttRetain};
 
@@ -48,27 +47,26 @@ impl PartialEq for ClientID {
 
 #[derive(Debug, Clone)]
 pub enum TopicMessage {
-    ContentV3(ClientID, crate::message::v3::PublishMessage),
-    ContentV5(ClientID, crate::message::v5::PublishMessage),
-    WillV3(crate::message::v3::PublishMessage),
-    WillV5(crate::message::v5::PublishMessage),
+    Content(ClientID, PublishMessage),
+    Will(PublishMessage),
 }
 
 impl TopicMessage {
     pub fn generate_v3_topic_message(client_id: ClientID, will_qos: MqttQos, will_retain: MqttRetain, will_topic: String, will_message: String) -> TopicMessage {
-        let msg = v3::PublishMessage::new(
+        let msg = PublishMessage::new(
             will_qos,
             MqttDup::Disable,
             will_retain,
             will_topic,
             0,
             will_message,
+            None
         );
-        TopicMessage::ContentV3(client_id, msg)
+        TopicMessage::Content(client_id, msg)
     }
 
     pub fn generate_v5_topic_message(client_id: ClientID, will_qos: MqttQos, will_retain: MqttRetain, will_topic: String, will_message: String) -> TopicMessage {
-        let msg = v5::PublishMessage::new(
+        let msg = PublishMessage::new(
             will_qos,
             MqttDup::Disable,
             will_retain,
@@ -80,7 +78,7 @@ impl TopicMessage {
                 PropertyItem(Property::MessageExpiryInterval, PropertyValue::Byte(12)),
             ]),
         );
-        TopicMessage::ContentV5(client_id, msg)
+        TopicMessage::Content(client_id, msg)
     }
 }
 

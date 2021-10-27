@@ -1,11 +1,7 @@
 use crate::tools::pack_tool::{pack_protocol_name, pack_connect_flags, pack_client_id, pack_will_topic, pack_will_message, pack_username, pack_password, pack_header, pack_message_short_id, pack_string, pack_publish_header, pack_short_int};
-use crate::tools::protocol::{MqttWillFlag, MqttSessionPresent, MqttQos, MqttDup, MqttRetain};
-use crate::hex::reason_code::{ReasonCodes, ReasonCodeV3};
+use crate::tools::protocol::{MqttWillFlag, MqttSessionPresent, MqttQos};
 use crate::tools::types::TypeKind;
-use crate::message::v3::{ConnectMessage, PublishMessage, SubscribeMessage, SubackMessage, UnsubscribeMessage, ConnackMessage, UnsubackMessage, PubackMessage, PubrecMessage, PubrelMessage, PubcompMessage};
-use crate::message::{BaseMessage, ConnectMessagePayload};
-use crate::tools::un_pack_tool::{get_connect_variable_header, get_connect_payload_data, parse_short_int, parse_string};
-use std::convert::TryFrom;
+use crate::message::entity::{ConnectMessage, PublishMessage, SubackMessage, SubscribeMessage, UnsubscribeMessage};
 
 pub fn connect(msg: &ConnectMessage) -> Vec<u8> {
     let mut body: Vec<u8> = pack_protocol_name(&msg.protocol_name);
@@ -49,8 +45,12 @@ pub fn connect(msg: &ConnectMessage) -> Vec<u8> {
     package
 }
 
-pub fn connack(session_present: MqttSessionPresent, return_code: ReasonCodeV3) -> Vec<u8> {
-    let body = vec![session_present as u8, return_code as u8];
+pub fn connack(session_present: MqttSessionPresent, return_code: Option<u8>) -> Vec<u8> {
+    let mut body = vec![session_present as u8];
+
+    if let Some(code) = return_code {
+        body.push(code);
+    }
 
     let mut package = pack_header(TypeKind::CONNACK, body.len());
 
@@ -80,7 +80,11 @@ pub fn subscribe(msg: &SubscribeMessage) -> Vec<u8> {
 
     body.extend(pack_string(&msg.topic));
 
-    body.push(msg.qos as u8);
+    if let Some(qos) = msg.qos {
+        body.push(qos as u8);
+    } else {
+        body.push(1);
+    }
 
     let mut package = pack_header(TypeKind::SUBSCRIBE, body.len());
 
@@ -113,7 +117,7 @@ pub fn unsubscribe(msg: &UnsubscribeMessage) -> Vec<u8> {
     package
 }
 
-pub fn not_payload(message_id: u16, msg_type: TypeKind) -> Vec<u8> {
+pub fn common(message_id: u16, msg_type: TypeKind) -> Vec<u8> {
     let body = pack_message_short_id(message_id);
 
     let mut package = pack_header(msg_type, body.len());

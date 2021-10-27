@@ -1,15 +1,16 @@
 use crate::message::BaseMessage;
-use crate::message::v5::{ConnectMessage, ConnackMessage, PublishMessage, SubscribeMessage, SubackMessage, UnsubackMessage, UnsubscribeMessage, DisconnectMessage, AuthMessage, CommonPayloadMessage};
 use crate::tools::un_pack_tool::{parse_short_int, parse_byte, parse_string, get_connect_variable_header, get_connect_payload_data, get_remaining_data};
 use crate::hex::un_pack_property;
 use crate::tools::protocol::{MqttQos, MqttNoLocal, MqttRetainAsPublished, MqttSessionPresent, MqttDup, MqttRetain};
 use std::convert::TryFrom;
 use crate::hex::reason_code::ReasonPhrases;
+use crate::message::entity::{AuthMessage, CommonPayloadMessage, ConnackMessage, ConnectMessage, DisconnectMessage, PublishMessage, SubackMessage, SubscribeMessage, UnsubackMessage, UnsubscribeMessage};
+use crate::message::v5::MqttMessageV5;
 
-pub fn connect(mut base: BaseMessage) -> ConnectMessage {
+pub fn connect(base: BaseMessage) -> MqttMessageV5 {
     let message_bytes = base.bytes.get(2..).unwrap();
 
-    let (mut variable_header, last_data) = get_connect_variable_header(message_bytes);
+    let (variable_header, last_data) = get_connect_variable_header(message_bytes);
 
     let (properties_total_length, last_data) = parse_byte(last_data);
 
@@ -22,30 +23,31 @@ pub fn connect(mut base: BaseMessage) -> ConnectMessage {
         (Some(Vec::default()), last_data)
     };
 
-    let mut payload = get_connect_payload_data(
+    let payload = get_connect_payload_data(
         variable_header.protocol_level.unwrap(),
         last_data,
         variable_header.will_flag.unwrap(),
         variable_header.username_flag.unwrap(),
         variable_header.password_flag.unwrap(),
     );
-
-    ConnectMessage {
-        msg_type: base.msg_type,
-        protocol_name: variable_header.protocol_name.unwrap(),
-        protocol_level: variable_header.protocol_level.unwrap(),
-        clean_session: variable_header.clean_session.unwrap(),
-        will_flag: variable_header.will_flag.unwrap(),
-        will_qos: variable_header.will_qos.unwrap(),
-        will_retain: variable_header.will_retain.unwrap(),
-        keep_alive: variable_header.keep_alive.unwrap(),
-        properties,
-        payload,
-        bytes: Some(base.bytes),
-    }
+    MqttMessageV5::Connect(
+        ConnectMessage {
+            msg_type: base.msg_type,
+            protocol_name: variable_header.protocol_name.unwrap(),
+            protocol_level: variable_header.protocol_level.unwrap(),
+            clean_session: variable_header.clean_session.unwrap(),
+            will_flag: variable_header.will_flag.unwrap(),
+            will_qos: variable_header.will_qos.unwrap(),
+            will_retain: variable_header.will_retain.unwrap(),
+            keep_alive: variable_header.keep_alive.unwrap(),
+            properties,
+            payload,
+            bytes: Some(base.bytes),
+        }
+    )
 }
 
-pub fn connack(mut base: BaseMessage) -> ConnackMessage {
+pub fn connack(base: BaseMessage) -> MqttMessageV5 {
     let message_bytes = base.bytes.get(2..).unwrap();
 
     let session_present = MqttSessionPresent::try_from((message_bytes.get(0).unwrap() & 1)).unwrap();
@@ -59,17 +61,19 @@ pub fn connack(mut base: BaseMessage) -> ConnackMessage {
     } else {
         Some(Vec::default())
     };
-
-    ConnackMessage {
-        msg_type: base.msg_type,
-        session_present,
-        return_code,
-        properties,
-        bytes: base.bytes,
-    }
+    MqttMessageV5::Connack(
+        ConnackMessage {
+            msg_type: base.msg_type,
+            protocol_level: None,
+            session_present,
+            return_code: Some(return_code),
+            properties,
+            bytes: Some(base.bytes),
+        }
+    )
 }
 
-pub fn publish(mut base: BaseMessage) -> PublishMessage {
+pub fn publish(base: BaseMessage) -> MqttMessageV5 {
     let message_bytes = base.bytes.get(2..).unwrap();
 
     let (topic, last_data) = parse_string(message_bytes).unwrap();
@@ -101,21 +105,23 @@ pub fn publish(mut base: BaseMessage) -> PublishMessage {
             msg_body
         )
     };
-
-    PublishMessage {
-        msg_type: base.msg_type,
-        message_id,
-        topic,
-        dup: base.dup.unwrap_or(MqttDup::Disable),
-        qos: base.qos.unwrap_or(MqttQos::Qos0),
-        retain: base.retain.unwrap_or(MqttRetain::Disable),
-        msg_body: msg_body.into_owned(),
-        properties,
-        bytes: Some(base.bytes),
-    }
+    MqttMessageV5::Publish(
+        PublishMessage {
+            msg_type: base.msg_type,
+            protocol_level: None,
+            message_id,
+            topic,
+            dup: base.dup.unwrap_or(MqttDup::Disable),
+            qos: base.qos.unwrap_or(MqttQos::Qos0),
+            retain: base.retain.unwrap_or(MqttRetain::Disable),
+            msg_body: msg_body.into_owned(),
+            properties,
+            bytes: Some(base.bytes),
+        }
+    )
 }
 
-pub fn subscribe(mut base: BaseMessage) -> Vec<SubscribeMessage> {
+pub fn subscribe(base: BaseMessage) -> Vec<MqttMessageV5> {
     println!("{:?}", base.bytes);
     let mut subs = vec![];
     let mut data_bytes = base.bytes.as_slice();
@@ -142,17 +148,22 @@ pub fn subscribe(mut base: BaseMessage) -> Vec<SubscribeMessage> {
         let no_local = byte_data >> 2 & 1;
         let retain_as_published = byte_data >> 3 & 1;
         let retain_handling = byte_data >> 4;
-        subs.push(SubscribeMessage {
-            msg_type: base.msg_type,
-            message_id,
-            topic,
-            qos: MqttQos::try_from(qos).ok(),
-            no_local: MqttNoLocal::try_from(no_local).ok(),
-            retain_as_published: MqttRetainAsPublished::try_from(retain_as_published).ok(),
-            retain_handling: Option::from(retain_handling),
-            properties,
-            bytes: Some(data_bytes.get(..remain_data.len() + 2).unwrap().to_vec()),
-        });
+        subs.push(
+            MqttMessageV5::Subscribe(
+                SubscribeMessage {
+                    msg_type: base.msg_type,
+                    protocol_level: None,
+                    message_id,
+                    topic,
+                    qos: MqttQos::try_from(qos).ok(),
+                    no_local: MqttNoLocal::try_from(no_local).ok(),
+                    retain_as_published: MqttRetainAsPublished::try_from(retain_as_published).ok(),
+                    retain_handling: Option::from(retain_handling),
+                    properties,
+                    bytes: Some(data_bytes.get(..remain_data.len() + 2).unwrap().to_vec()),
+                }
+            )
+        );
 
         if let Some(last_data) = data_bytes.get(remain_data.len() + 2..) {
             if last_data.len() > 0 { data_bytes = last_data; } else { break; }
@@ -165,7 +176,7 @@ pub fn subscribe(mut base: BaseMessage) -> Vec<SubscribeMessage> {
     subs
 }
 
-pub fn unsubscribe(mut base: BaseMessage) -> Vec<UnsubscribeMessage> {
+pub fn unsubscribe(base: BaseMessage) -> Vec<MqttMessageV5> {
     let mut subs = vec![];
     let mut data_bytes = base.bytes.as_slice();
 
@@ -188,13 +199,18 @@ pub fn unsubscribe(mut base: BaseMessage) -> Vec<UnsubscribeMessage> {
 
         let (topic, _) = parse_string(last_data).unwrap();
 
-        subs.push(UnsubscribeMessage {
-            msg_type: base.msg_type,
-            message_id,
-            topic,
-            properties,
-            bytes: Some(data_bytes.get(..remain_data.len() + 2).unwrap().to_vec()),
-        });
+        subs.push(
+            MqttMessageV5::Unsubscribe(
+                UnsubscribeMessage {
+                    msg_type: base.msg_type,
+                    protocol_level: None,
+                    message_id,
+                    topic,
+                    properties,
+                    bytes: Some(data_bytes.get(..remain_data.len() + 2).unwrap().to_vec()),
+                }
+            )
+        );
 
         if let Some(last_data) = data_bytes.get(remain_data.len() + 2..) {
             if last_data.len() > 0 { data_bytes = last_data; } else { break; }
@@ -207,7 +223,7 @@ pub fn unsubscribe(mut base: BaseMessage) -> Vec<UnsubscribeMessage> {
     subs
 }
 
-pub fn suback(mut base: BaseMessage) -> SubackMessage {
+pub fn suback(base: BaseMessage) -> MqttMessageV5 {
     let message_bytes = base.bytes.get(2..).unwrap();
 
     let (message_id, last_data) = parse_short_int(message_bytes);
@@ -222,16 +238,19 @@ pub fn suback(mut base: BaseMessage) -> SubackMessage {
 
     let codes = last_data.to_vec();
 
-    SubackMessage {
-        msg_type: base.msg_type,
-        message_id,
-        codes,
-        properties,
-        bytes: Some(base.bytes),
-    }
+    MqttMessageV5::Suback(
+        SubackMessage {
+            msg_type: base.msg_type,
+            protocol_level: None,
+            message_id,
+            codes,
+            properties,
+            bytes: Some(base.bytes),
+        }
+    )
 }
 
-pub fn unsuback(mut base: BaseMessage) -> UnsubackMessage {
+pub fn unsuback(base: BaseMessage) -> MqttMessageV5 {
     let message_bytes = base.bytes.get(2..).unwrap();
 
     let (message_id, last_data) = parse_short_int(message_bytes);
@@ -244,18 +263,20 @@ pub fn unsuback(mut base: BaseMessage) -> UnsubackMessage {
         Some(Vec::default())
     };
 
-    let codes = last_data.to_vec();
-
-    UnsubackMessage {
-        msg_type: base.msg_type,
-        message_id,
-        codes,
-        properties,
-        bytes: Some(base.bytes),
-    }
+    let code = *last_data.get(base.bytes.len() - 1).unwrap();
+    MqttMessageV5::Unsuback(
+        UnsubackMessage {
+            msg_type: base.msg_type,
+            protocol_level: None,
+            message_id,
+            code: Some(code),
+            properties,
+            bytes: Some(base.bytes),
+        }
+    )
 }
 
-pub fn disconnect(mut base: BaseMessage) -> DisconnectMessage {
+pub fn disconnect(base: BaseMessage) -> MqttMessageV5 {
     let message_bytes = base.bytes.get(2..).unwrap();
 
     let (code, mut last_data) = if message_bytes.len() > 0 {
@@ -277,16 +298,18 @@ pub fn disconnect(mut base: BaseMessage) -> DisconnectMessage {
     } else {
         Some(Vec::default())
     };
-
-    DisconnectMessage {
-        msg_type: base.msg_type,
-        code,
-        properties,
-        bytes: base.bytes,
-    }
+    MqttMessageV5::Disconnect(
+        DisconnectMessage {
+            msg_type: base.msg_type,
+            code: Some(code),
+            protocol_level: None,
+            properties,
+            bytes: Some(base.bytes),
+        }
+    )
 }
 
-pub fn auth(mut base: BaseMessage) -> AuthMessage {
+pub fn auth(base: BaseMessage) -> MqttMessageV5 {
     let message_bytes = base.bytes.get(2..).unwrap();
 
     let (code, mut last_data) = if message_bytes.len() > 0 {
@@ -308,16 +331,41 @@ pub fn auth(mut base: BaseMessage) -> AuthMessage {
     } else {
         Some(Vec::default())
     };
-
-    AuthMessage {
-        msg_type: base.msg_type,
-        code,
-        properties,
-        bytes: base.bytes,
-    }
+    MqttMessageV5::Auth(
+        AuthMessage {
+            msg_type: base.msg_type,
+            code,
+            properties,
+            bytes: Some(base.bytes),
+        }
+    )
 }
 
-pub fn get_reason_code(mut base: BaseMessage) -> CommonPayloadMessage {
+pub fn puback(base: BaseMessage) -> MqttMessageV5 {
+    MqttMessageV5::Puback(
+        get_reason_code(base)
+    )
+}
+
+pub fn pubrec(base: BaseMessage) -> MqttMessageV5 {
+    MqttMessageV5::Pubrec(
+        get_reason_code(base)
+    )
+}
+
+pub fn pubrel(base: BaseMessage) -> MqttMessageV5 {
+    MqttMessageV5::Pubrel(
+        get_reason_code(base)
+    )
+}
+
+pub fn pubcomp(base: BaseMessage) -> MqttMessageV5 {
+    MqttMessageV5::Pubcomp(
+        get_reason_code(base)
+    )
+}
+
+pub fn get_reason_code(base: BaseMessage) -> CommonPayloadMessage {
     let message_bytes = base.bytes.get(2..).unwrap();
 
     let (message_id, last_data) = parse_short_int(message_bytes);

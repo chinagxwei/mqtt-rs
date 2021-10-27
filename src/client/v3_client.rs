@@ -12,14 +12,13 @@ use tokio::sync::mpsc::Sender;
 use tokio_rustls::rustls::OwnedTrustAnchor;
 use tokio_rustls::{rustls, webpki, TlsConnector};
 use crate::client::MqttClientOption;
-use crate::message::{BaseMessage, MqttBytesMessage, MqttMessageKind,PingreqMessage};
-use crate::message::v3::ConnectMessage;
+use crate::message::MqttMessageKind;
+use crate::message::entity::{ConnectMessage, PingreqMessage};
 use crate::server::ServerHandleKind;
 use crate::session::{LinkHandle, LinkMessage, Session};
 use crate::session::v3_client_link::Link;
 use crate::tools::config::Config;
-use crate::tools::protocol::{MqttCleanSession, MqttQos};
-use crate::tools::tls::{client_load_certs, load_certs};
+use crate::tools::protocol::MqttCleanSession;
 
 struct MqttClient<F, Fut>
     where
@@ -122,7 +121,7 @@ impl<F, Fut> MqttClient<F, Fut>
     pub async fn connect(&mut self) {
         if self.handle.is_none() { return; }
         let handle_message = **self.handle.as_ref().unwrap();
-        let mut stream = self.init().await;
+        let stream = self.init().await;
         let link = self.init_link();
         let config = self.config.clone();
         tokio::spawn(async move {
