@@ -1,7 +1,8 @@
-use crate::message::MqttMessageType;
+use crate::message::{MqttMessageType, MqttMessageVersion};
 use crate::packet::{v5_packet};
 use crate::message::entity::{AuthMessage, CommonPayloadMessage, ConnackMessage, ConnectMessage, DisconnectMessage, PingreqMessage, PingrespMessage, PubackMessage, PubcompMessage, PublishMessage, PubrecMessage, PubrelMessage, SubackMessage, SubscribeMessage, UnsubackMessage, UnsubscribeMessage};
 use crate::tools::pack_tool::pack_header;
+use crate::tools::protocol::MqttProtocolLevel;
 
 
 #[derive(Debug, Clone)]
@@ -103,6 +104,28 @@ impl MqttMessageV5 {
             MqttMessageV5::Pingresp(msg) => { Some(pack_header(msg.get_message_type(), 0)) }
             MqttMessageV5::Disconnect(msg) => { Some(pack_header(msg.get_message_type(), 0)) }
             MqttMessageV5::Auth(msg) => { Some(v5_packet::auth(msg)) }
+        }
+    }
+}
+
+impl MqttMessageVersion for MqttMessageV5 {
+    fn version(&self) -> Option<MqttProtocolLevel> {
+        match self {
+            MqttMessageV5::Connect(msg) => Some(msg.protocol_level),
+            MqttMessageV5::Connack(msg) => msg.protocol_level,
+            MqttMessageV5::Publish(msg) => msg.protocol_level,
+            MqttMessageV5::Puback(msg) => msg.protocol_level,
+            MqttMessageV5::Pubrec(msg) => msg.protocol_level,
+            MqttMessageV5::Pubrel(msg) => msg.protocol_level,
+            MqttMessageV5::Pubcomp(msg) => msg.protocol_level,
+            MqttMessageV5::Subscribe(msg) => msg.protocol_level,
+            MqttMessageV5::Suback(msg) => msg.protocol_level,
+            MqttMessageV5::Unsubscribe(msg) => msg.protocol_level,
+            MqttMessageV5::Unsuback(msg) => msg.protocol_level,
+            MqttMessageV5::Pingreq(msg) => msg.protocol_level,
+            MqttMessageV5::Pingresp(msg) => msg.protocol_level,
+            MqttMessageV5::Disconnect(msg) => msg.protocol_level,
+            MqttMessageV5::Auth(msg) => msg.protocol_level,
         }
     }
 }

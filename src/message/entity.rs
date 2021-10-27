@@ -183,8 +183,8 @@ impl SubackMessage {
     }
 }
 
-impl From<SubscribeMessage> for SubackMessage {
-    fn from(smsg: SubscribeMessage) -> Self {
+impl From<&SubscribeMessage> for SubackMessage {
+    fn from(smsg: &SubscribeMessage) -> Self {
         let codes = if (smsg.qos.unwrap() as u32) < 3 {
             smsg.qos.unwrap().as_byte().to_ne_bytes().to_vec()
         } else {
@@ -389,8 +389,8 @@ impl PubrelMessage {
     }
 }
 
-impl From<PubrecMessage> for PubrelMessage {
-    fn from(pubrec: PubrecMessage) -> Self {
+impl From<&PubrecMessage> for PubrelMessage {
+    fn from(pubrec: &PubrecMessage) -> Self {
         PubrelMessage::new(pubrec.message_id)
     }
 }
@@ -424,8 +424,8 @@ impl PubcompMessage {
     }
 }
 
-impl From<PubrelMessage> for PubcompMessage {
-    fn from(pubrel: PubrelMessage) -> Self {
+impl From<&PubrelMessage> for PubcompMessage {
+    fn from(pubrel: &PubrelMessage) -> Self {
         PubcompMessage::new(pubrel.message_id)
     }
 }
@@ -530,6 +530,7 @@ impl Default for PingrespMessage {
 #[derive(Debug, Clone)]
 pub struct AuthMessage {
     pub msg_type: TypeKind,
+    pub protocol_level: Option<MqttProtocolLevel>,
     pub code: u8,
     pub properties: Option<Vec<PropertyItem>>,
     pub bytes: Option<Vec<u8>>,
@@ -545,6 +546,7 @@ impl Default for AuthMessage {
     fn default() -> Self {
         AuthMessage {
             msg_type: TypeKind::AUTH,
+            protocol_level: Some(MqttProtocolLevel::Level5),
             code: ReasonPhrases::Success.as_byte(),
             properties: Some(Vec::default()),
             bytes: None,

@@ -13,6 +13,7 @@ use crate::server::ServerHandleKind;
 use async_trait::async_trait;
 use crate::container::MessageFrame;
 use crate::message::v3::MqttMessageV3;
+use crate::subscript::TopicMessage::Content;
 
 pub struct Link {
     session: ServerSessionV3,
@@ -59,37 +60,29 @@ impl LinkHandle for Link {
                     f(self.session.clone(), v3_request).await;
                     None
                 }
-                LinkMessage::HandleMessage(msg) => {
-                    match msg {
-                        TopicMessage::Content(from_id, content) => {
-                            let client_id = self.session().get_client_id();
-                            println!("from: {:?}", from_id);
-                            println!("to: {:?}", client_id);
-                            if content.qos == MqttQos::Qos2 {
-                                MESSAGE_CONTAINER.append(
-                                    client_id.clone(),
-                                    content.message_id,
-                                    MessageFrame::new(
-                                        from_id.clone(),
-                                        client_id.clone(),
-                                        content.bytes.as_ref().unwrap().clone(),
-                                        content.message_id,
-                                    ),
-                                ).await;
-                            }
-
-                            if client_id != &from_id {
-                                return Some(ServerHandleKind::Response(
-                                    MqttMessageV3::Publish(content).to_vec().unwrap()
-                                ));
-                            }
-                            None
-                        }
-                        // TopicMessage::Will(content) => {
-                        //     Some(ServerHandleKind::Response(MqttMessageV3::Publish(content).to_vec().unwrap()))
-                        // }
-                        _ => None,
+                LinkMessage::HandleMessage(Content(from_id, content)) => {
+                    let client_id = self.session().get_client_id();
+                    println!("from: {:?}", from_id);
+                    println!("to: {:?}", client_id);
+                    if content.qos == MqttQos::Qos2 {
+                        MESSAGE_CONTAINER.append(
+                            client_id.clone(),
+                            content.message_id,
+                            MessageFrame::new(
+                                from_id.clone(),
+                                client_id.clone(),
+                                content.bytes.as_ref().unwrap().clone(),
+                                content.message_id,
+                            ),
+                        ).await;
                     }
+
+                    if client_id != &from_id {
+                        return Some(ServerHandleKind::Response(
+                            MqttMessageV3::Publish(content).to_vec().unwrap()
+                        ));
+                    }
+                    None
                 }
                 LinkMessage::ExitMessage(will) => {
                     if will && self.session.is_will_flag() {

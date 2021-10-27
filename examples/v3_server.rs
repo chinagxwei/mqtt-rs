@@ -54,7 +54,7 @@ async fn handle_v3(session: &ServerSessionV3, kind_opt: Option<&MqttMessageV3>) 
             }
             MqttMessageV3::Subscribe(msg) => {
                 session.subscribe(&msg.topic).await;
-                let sm = SubackMessage::from(msg.clone());
+                let sm = SubackMessage::from(msg);
                 println!("{:?}", sm);
                 return Some(MqttMessageV3::Suback(sm));
             }
@@ -68,10 +68,10 @@ async fn handle_v3(session: &ServerSessionV3, kind_opt: Option<&MqttMessageV3>) 
                 }
             }
             MqttMessageV3::Pubrec(msg) => {
-                Some(MqttMessageV3::Pubrel(PubrelMessage::from(msg.clone())))
+                Some(MqttMessageV3::Pubrel(PubrelMessage::from(msg)))
             }
             MqttMessageV3::Pubrel(msg) => {
-                Some(MqttMessageV3::Pubcomp(PubcompMessage::from(msg.clone())))
+                Some(MqttMessageV3::Pubcomp(PubcompMessage::from(msg)))
             }
             MqttMessageV3::Pingresp(msg) => Some(MqttMessageV3::Pingresp(msg.clone())),
             MqttMessageV3::Disconnect(_) => Some(MqttMessageV3::Disconnect(DisconnectMessage::default())),

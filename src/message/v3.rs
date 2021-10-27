@@ -1,7 +1,8 @@
 use crate::tools::pack_tool::{pack_header};
 use crate::packet::v3_packet;
-use crate::message::MqttMessageType;
+use crate::message::{MqttMessageType, MqttMessageVersion};
 use crate::message::entity::{ConnackMessage, ConnectMessage, DisconnectMessage, PingreqMessage, PingrespMessage, PubackMessage, PubcompMessage, PublishMessage, PubrecMessage, PubrelMessage, SubackMessage, SubscribeMessage, UnsubackMessage, UnsubscribeMessage};
+use crate::tools::protocol::MqttProtocolLevel;
 
 #[derive(Debug, Clone)]
 pub enum MqttMessageV3 {
@@ -96,6 +97,27 @@ impl MqttMessageV3 {
             MqttMessageV3::Pingreq(msg) => { Some(pack_header(msg.get_message_type(), 0)) }
             MqttMessageV3::Pingresp(msg) => { Some(pack_header(msg.get_message_type(), 0)) }
             MqttMessageV3::Disconnect(msg) => { Some(pack_header(msg.get_message_type(), 0)) }
+        }
+    }
+}
+
+impl MqttMessageVersion for MqttMessageV3 {
+    fn version(&self) -> Option<MqttProtocolLevel> {
+        match self {
+            MqttMessageV3::Connect(msg) => Some(msg.protocol_level),
+            MqttMessageV3::Connack(msg) => msg.protocol_level,
+            MqttMessageV3::Publish(msg) => msg.protocol_level,
+            MqttMessageV3::Puback(msg) => msg.protocol_level,
+            MqttMessageV3::Pubrec(msg) => msg.protocol_level,
+            MqttMessageV3::Pubrel(msg) => msg.protocol_level,
+            MqttMessageV3::Pubcomp(msg) => msg.protocol_level,
+            MqttMessageV3::Subscribe(msg) => msg.protocol_level,
+            MqttMessageV3::Suback(msg) => msg.protocol_level,
+            MqttMessageV3::Unsubscribe(msg) => msg.protocol_level,
+            MqttMessageV3::Unsuback(msg) => msg.protocol_level,
+            MqttMessageV3::Pingreq(msg) => msg.protocol_level,
+            MqttMessageV3::Pingresp(msg) => msg.protocol_level,
+            MqttMessageV3::Disconnect(msg) => msg.protocol_level,
         }
     }
 }

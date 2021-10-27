@@ -17,10 +17,6 @@ pub enum MqttMessageKind {
     RequestV3Vec(Vec<MqttMessageV3>),
     RequestV5(MqttMessageV5),
     RequestV5Vec(Vec<MqttMessageV5>),
-    ResponseV3(MqttMessageV3),
-    ResponseVec(Vec<MqttMessageV3>),
-    ResponseV5(MqttMessageV5),
-    ResponseV5Vec(Vec<MqttMessageV5>),
 }
 
 impl MqttMessageKind {
@@ -123,6 +119,10 @@ impl MqttMessageKind {
 
 pub trait MqttMessageType {
     fn get_message_type(&self) -> TypeKind;
+}
+
+pub trait MqttMessageVersion {
+    fn version(&self) -> Option<MqttProtocolLevel>;
 }
 
 pub trait MqttBytesMessage: MqttMessageType {

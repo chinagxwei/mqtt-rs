@@ -1,7 +1,7 @@
 use crate::message::BaseMessage;
 use crate::tools::un_pack_tool::{parse_short_int, parse_byte, parse_string, get_connect_variable_header, get_connect_payload_data, get_remaining_data};
 use crate::hex::un_pack_property;
-use crate::tools::protocol::{MqttQos, MqttNoLocal, MqttRetainAsPublished, MqttSessionPresent, MqttDup, MqttRetain};
+use crate::tools::protocol::{MqttQos, MqttNoLocal, MqttRetainAsPublished, MqttSessionPresent, MqttDup, MqttRetain, MqttProtocolLevel};
 use std::convert::TryFrom;
 use crate::hex::reason_code::ReasonPhrases;
 use crate::message::entity::{AuthMessage, CommonPayloadMessage, ConnackMessage, ConnectMessage, DisconnectMessage, PublishMessage, SubackMessage, SubscribeMessage, UnsubackMessage, UnsubscribeMessage};
@@ -334,6 +334,7 @@ pub fn auth(base: BaseMessage) -> MqttMessageV5 {
     MqttMessageV5::Auth(
         AuthMessage {
             msg_type: base.msg_type,
+            protocol_level: Some(MqttProtocolLevel::Level5),
             code,
             properties,
             bytes: Some(base.bytes),
