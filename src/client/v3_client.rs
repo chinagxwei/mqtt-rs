@@ -13,12 +13,13 @@ use tokio_rustls::rustls::OwnedTrustAnchor;
 use tokio_rustls::{rustls, webpki, TlsConnector};
 use crate::client::MqttClientOption;
 use crate::message::MqttMessageKind;
-use crate::message::entity::{ConnectMessage, PingreqMessage};
+use crate::message::entity::{ConnectMessage, DisconnectMessage, PingreqMessage, PublishMessage, SubscribeMessage, UnsubscribeMessage};
+use crate::message::v3::MqttMessageV3;
 use crate::server::ServerHandleKind;
 use crate::session::{LinkHandle, LinkMessage, ClientSessionV3};
 use crate::session::v3_client_link::Link;
 use crate::tools::config::Config;
-use crate::tools::protocol::MqttCleanSession;
+use crate::tools::protocol::{MqttCleanSession, MqttDup, MqttQos, MqttRetain};
 
 struct MqttClient<F, Fut>
     where
@@ -51,23 +52,33 @@ impl<F, Fut> MqttClient<F, Fut>
         self
     }
 
-    // pub fn publish(&self, topic: String, message: String, qos: MqttQos) {
-    //     PublishMessage::new()
-    // }
-    //
-    // pub async fn subscribe(&self, topic: String) {
-    //     SubscribeMessage::new()
-    // }
-    //
-    // pub fn unsubscribe(&self, topic: String) {
-    //     UnsubscribeMessage::new()
-    // }
+    pub async fn publish(&self, topic: String, message: String, qos: MqttQos, dup: MqttDup, retain: MqttRetain) {
+        if let Some(sender) = self.sender.as_ref() {
+            let msg: MqttMessageV3 = PublishMessage::new(qos, dup, retain, topic, 0, message, None).into();
+            sender.send(LinkMessage::OutputMessage(msg.to_vec().unwrap())).await;
+        }
+    }
 
-    // pub async fn disconnect(&self) {
-    //     if let Some(sender) = self.sender.as_ref() {
-    //         sender.send(LinkMessage::OutputMessage(DisconnectMessage::default().bytes)).await;
-    //     }
-    // }
+    pub async fn subscribe(&self, topic: String, qos: MqttQos) {
+        if let Some(sender) = self.sender.as_ref() {
+            let msg: MqttMessageV3 = SubscribeMessage::new(0, topic, qos).into();
+            sender.send(LinkMessage::OutputMessage(msg.to_vec().unwrap())).await;
+        }
+    }
+
+    pub async fn unsubscribe(&self, topic: String) {
+        if let Some(sender) = self.sender.as_ref() {
+            let msg: MqttMessageV3 = UnsubscribeMessage::new(0, topic).into();
+            sender.send(LinkMessage::OutputMessage(msg.to_vec().unwrap())).await;
+        }
+    }
+
+    pub async fn disconnect(&self) {
+        if let Some(sender) = self.sender.as_ref() {
+            let msg: MqttMessageV3 = DisconnectMessage::default().into();
+            sender.send(LinkMessage::OutputMessage(msg.to_vec().unwrap())).await;
+        }
+    }
 
     async fn init(&self) -> TcpStream {
         let socket = TcpSocket::new_v4().unwrap();
