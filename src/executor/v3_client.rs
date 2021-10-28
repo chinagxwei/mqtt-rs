@@ -2,7 +2,6 @@ use std::convert::TryFrom;
 use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
-use std::option::Option::Some;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -11,13 +10,13 @@ use tokio::sync::mpsc;
 use tokio::sync::mpsc::Sender;
 use tokio_rustls::rustls::OwnedTrustAnchor;
 use tokio_rustls::{rustls, webpki, TlsConnector};
-use crate::client::MqttClientOption;
+use crate::executor::{MqttClientOption, ReturnKind};
+use crate::handle::{HandleEvent, LinkHandle};
+use crate::handle::v3_client_handle::ClientHandle;
 use crate::message::MqttMessageKind;
 use crate::message::entity::{ConnectMessage, DisconnectMessage, PingreqMessage, PublishMessage, SubscribeMessage, UnsubscribeMessage};
 use crate::message::v3::MqttMessageV3;
-use crate::server::ServerHandleKind;
-use crate::session::{LinkHandle, LinkMessage, ClientSessionV3};
-use crate::session::v3_client_link::Link;
+use crate::session::ClientSessionV3;
 use crate::tools::config::Config;
 use crate::tools::protocol::{MqttCleanSession, MqttDup, MqttQos, MqttRetain};
 
@@ -29,7 +28,7 @@ struct MqttClient<F, Fut>
     config: Config,
     address: SocketAddr,
     handle: Option<Box<F>>,
-    sender: Option<Sender<LinkMessage>>,
+    sender: Option<Sender<HandleEvent>>,
     option: Option<MqttClientOption>,
 }
 
@@ -55,28 +54,28 @@ impl<F, Fut> MqttClient<F, Fut>
     pub async fn publish(&self, topic: String, message: String, qos: MqttQos, dup: MqttDup, retain: MqttRetain) {
         if let Some(sender) = self.sender.as_ref() {
             let msg: MqttMessageV3 = PublishMessage::new(qos, dup, retain, topic, 0, message, None).into();
-            sender.send(LinkMessage::OutputMessage(msg.to_vec().unwrap())).await;
+            sender.send(HandleEvent::OutputEvent(msg.to_vec().unwrap())).await;
         }
     }
 
     pub async fn subscribe(&self, topic: String, qos: MqttQos) {
         if let Some(sender) = self.sender.as_ref() {
             let msg: MqttMessageV3 = SubscribeMessage::new(0, topic, qos).into();
-            sender.send(LinkMessage::OutputMessage(msg.to_vec().unwrap())).await;
+            sender.send(HandleEvent::OutputEvent(msg.to_vec().unwrap())).await;
         }
     }
 
     pub async fn unsubscribe(&self, topic: String) {
         if let Some(sender) = self.sender.as_ref() {
             let msg: MqttMessageV3 = UnsubscribeMessage::new(0, topic).into();
-            sender.send(LinkMessage::OutputMessage(msg.to_vec().unwrap())).await;
+            sender.send(HandleEvent::OutputEvent(msg.to_vec().unwrap())).await;
         }
     }
 
     pub async fn disconnect(&self) {
         if let Some(sender) = self.sender.as_ref() {
             let msg: MqttMessageV3 = DisconnectMessage::default().into();
-            sender.send(LinkMessage::OutputMessage(msg.to_vec().unwrap())).await;
+            sender.send(HandleEvent::OutputEvent(msg.to_vec().unwrap())).await;
         }
     }
 
@@ -85,11 +84,10 @@ impl<F, Fut> MqttClient<F, Fut>
         socket.connect(self.address).await.unwrap()
     }
 
-    fn init_link(&mut self) -> Link {
+    fn init_handle(&mut self) -> ClientHandle {
         let (sender, receiver) = mpsc::channel(512);
         self.sender = Some(sender.clone());
-        let link = Link::new(ClientSessionV3::new(sender), receiver);
-        link
+        ClientHandle::new(ClientSessionV3::new(sender), receiver)
     }
 
     // fn tls_connector(&self) -> Option<TlsConnector> {
@@ -131,50 +129,50 @@ impl<F, Fut> MqttClient<F, Fut>
 
     pub async fn connect(&mut self) {
         if self.handle.is_none() { return; }
-        let handle_message = **self.handle.as_ref().unwrap();
+        let callback = **self.handle.as_ref().unwrap();
         let stream = self.init().await;
-        let link = self.init_link();
+        let handle = self.init_handle();
         let config = self.config.clone();
         tokio::spawn(async move {
-            run(stream, handle_message, link, config).await;
+            run(stream, callback, handle, config).await;
         });
     }
 }
 
-async fn run<S, F, Fut>(mut stream: S, handle: F, mut link: Link, config: Config)
+async fn run<S, F, Fut>(mut stream: S, callback: F, mut handle: ClientHandle, config: Config)
     where
         F: Fn(ClientSessionV3, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
         Fut: Future<Output=()> + Send,
         S: AsyncReadExt + AsyncWriteExt + Unpin
 {
     let msg = ConnectMessage::new(MqttCleanSession::Enable, config);
-    link.send_message(LinkMessage::OutputMessage(msg.bytes.unwrap())).await;
+    handle.send_message(HandleEvent::OutputEvent(msg.bytes.unwrap())).await;
     let mut buffer = [0; 1024];
     let mut interval = tokio::time::interval(Duration::from_secs(30));
     loop {
         let res = tokio::select! {
             _ = interval.tick() => {
-                link.send_message(LinkMessage::OutputMessage(PingreqMessage::default().bytes)).await;
+                handle.send_message(HandleEvent::OutputEvent(PingreqMessage::default().bytes)).await;
                 None
             },
             Ok(n) = stream.read(&mut buffer) => {
                 if n != 0 {
                     println!("length: {}",n);
-                    link.send_message(LinkMessage::InputMessage(buffer[0..n].to_vec())).await;
+                    handle.send_message(HandleEvent::OutputEvent(buffer[0..n].to_vec())).await;
                 }
                 None
             },
-            kind = link.handle(handle) => kind
+            kind = handle.execute(callback) => kind
         };
         if let Some(kind) = res {
             match kind {
-                ServerHandleKind::Response(data) => {
+                ReturnKind::Response(data) => {
                     println!("data: {:?}", data);
                     if let Err(e) = stream.write_all(data.as_slice()).await {
                         println!("failed to write to socket; err = {:?}", e);
                     }
                 }
-                ServerHandleKind::Exit => break
+                ReturnKind::Exit => break
             }
         }
     }

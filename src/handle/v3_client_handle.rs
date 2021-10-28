@@ -1,18 +1,19 @@
 use std::future::Future;
+use tokio::sync::mpsc;
 use async_trait::async_trait;
-use tokio::sync::mpsc::Receiver;
-use crate::message::{BaseMessage, MqttMessageKind};
-use crate::server::ServerHandleKind;
-use crate::session::{LinkHandle, LinkMessage, MqttSession, ClientSessionV3};
+use crate::executor::ReturnKind;
+use crate::handle::{HandleEvent, LinkHandle};
+use crate::message::{MqttMessageKind, BaseMessage};
+use crate::session::ClientSessionV3;
 
-pub struct Link {
+pub struct ClientHandle {
     session: ClientSessionV3,
-    receiver: Receiver<LinkMessage>,
+    receiver: mpsc::Receiver<HandleEvent>,
 }
 
-impl Link {
-    pub fn new(session: ClientSessionV3, receiver: Receiver<LinkMessage>) -> Link {
-        Link {
+impl ClientHandle {
+    pub fn new(session: ClientSessionV3, receiver: mpsc::Receiver<HandleEvent>) -> ClientHandle {
+        ClientHandle {
             session,
             receiver,
         }
@@ -22,19 +23,18 @@ impl Link {
         &self.session
     }
 
-    pub async fn send_message(&self, msg: LinkMessage) {
-        // self.session.sender.send(msg).await;
-        if let Err(e) = self.session.sender.send(msg).await {
+    pub async fn send_message(&self, msg: HandleEvent) {
+        if let Err(e) = self.session.send_event(msg).await {
             println!("failed to send message; err = {:?}", e);
         }
     }
 }
 
 #[async_trait]
-impl LinkHandle for Link {
+impl LinkHandle for ClientHandle {
     type Ses = ClientSessionV3;
 
-    async fn handle<F, Fut>(&mut self, f: F) -> Option<ServerHandleKind>
+    async fn execute<F, Fut>(&mut self, f: F) -> Option<ReturnKind>
         where
             F: Fn(Self::Ses, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
             Fut: Future<Output=()> + Send
@@ -42,17 +42,17 @@ impl LinkHandle for Link {
         return match self.receiver.recv().await {
             Some(msg) => {
                 match msg {
-                    LinkMessage::InputMessage(data) => {
+                    HandleEvent::InputEvent(data) => {
                         let base_msg = BaseMessage::from(data);
                         let v3_request = MqttMessageKind::to_v3_request(base_msg);
                         f(self.session.clone(), v3_request).await;
                         None
                     }
-                    LinkMessage::OutputMessage(data) => {
-                        Some(ServerHandleKind::Response(data))
+                    HandleEvent::OutputEvent(data) => {
+                        Some(ReturnKind::Response(data))
                     }
-                    LinkMessage::ExitMessage(_) => {
-                        Some(ServerHandleKind::Exit)
+                    HandleEvent::ExitEvent(_) => {
+                        Some(ReturnKind::Exit)
                     }
                     _ => None
                 }

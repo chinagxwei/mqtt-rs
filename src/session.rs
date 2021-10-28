@@ -3,22 +3,11 @@ use tokio::sync::mpsc::Sender;
 use crate::message::MqttMessageKind;
 use crate::subscript::{ClientID, TopicMessage};
 use crate::tools::protocol::{MqttCleanSession, MqttProtocolLevel, MqttQos, MqttRetain, MqttWillFlag};
-use crate::server::ServerHandleKind;
 use async_trait::async_trait;
+use tokio::sync::mpsc::error::SendError;
+use crate::handle::HandleEvent;
 use crate::message::entity::PublishMessage;
 use crate::SUBSCRIPT;
-
-pub mod v3_server_link;
-pub mod v3_client_link;
-
-#[async_trait]
-pub trait LinkHandle {
-    type Ses: MqttSession;
-    async fn handle<F, Fut>(&mut self, f: F) -> Option<ServerHandleKind>
-        where
-            F: Fn(Self::Ses, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
-            Fut: Future<Output=()> + Send;
-}
 
 #[async_trait]
 pub trait MqttSession: Clone {
@@ -28,17 +17,16 @@ pub trait MqttSession: Clone {
     async fn send(&self, msg: Vec<u8>);
 }
 
-#[derive(Debug)]
-pub enum LinkMessage {
-    InputMessage(Vec<u8>),
-    OutputMessage(Vec<u8>),
-    HandleMessage(TopicMessage),
-    ExitMessage(bool),
-}
 
 #[derive(Clone)]
 pub struct ClientSessionV3 {
-    sender: Sender<LinkMessage>,
+    sender: Sender<HandleEvent>,
+}
+
+impl ClientSessionV3 {
+    pub async fn send_event(&self, event: HandleEvent) -> Result<(), SendError<HandleEvent>> {
+        self.sender.send(event).await
+    }
 }
 
 #[async_trait]
@@ -53,7 +41,7 @@ impl MqttSession for ClientSessionV3 {
 }
 
 impl ClientSessionV3 {
-    pub fn new(sender: Sender<LinkMessage>) -> ClientSessionV3 {
+    pub fn new(sender: Sender<HandleEvent>) -> ClientSessionV3 {
         ClientSessionV3 {
             sender
         }
@@ -62,11 +50,11 @@ impl ClientSessionV3 {
 
 #[derive(Clone)]
 pub struct ServerSessionV3 {
-    sender: Sender<LinkMessage>,
-    clean_session: Option<MqttCleanSession>,
+    sender: Sender<HandleEvent>,
+    pub(crate) clean_session: Option<MqttCleanSession>,
     client_id: Option<ClientID>,
     protocol_name: Option<String>,
-    protocol_level: Option<MqttProtocolLevel>,
+    pub(crate) protocol_level: Option<MqttProtocolLevel>,
     will_flag: Option<MqttWillFlag>,
     will_qos: Option<MqttQos>,
     will_retain: Option<MqttRetain>,
@@ -75,7 +63,7 @@ pub struct ServerSessionV3 {
 }
 
 impl ServerSessionV3 {
-    pub fn new(sender: Sender<LinkMessage>) -> ServerSessionV3 {
+    pub fn new(sender: Sender<HandleEvent>) -> ServerSessionV3 {
         ServerSessionV3 {
             client_id: None,
             protocol_name: None,
@@ -143,6 +131,10 @@ impl ServerSessionV3 {
             _ => None
         };
     }
+
+    pub async fn send_event(&self, event: HandleEvent) -> Result<(), SendError<HandleEvent>> {
+        self.sender.send(event).await
+    }
 }
 
 #[async_trait]
@@ -167,10 +159,10 @@ impl MqttSession for ServerSessionV3 {
     }
 
     async fn exit(&self) {
-        self.sender.send(LinkMessage::ExitMessage(true)).await;
+        self.sender.send(HandleEvent::ExitEvent(true)).await;
     }
 
     async fn send(&self, msg: Vec<u8>) {
-        self.sender.send(LinkMessage::OutputMessage(msg)).await;
+        self.sender.send(HandleEvent::OutputEvent(msg)).await;
     }
 }

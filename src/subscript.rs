@@ -3,9 +3,9 @@ use std::sync::Arc;
 use tokio::sync::mpsc::Sender;
 
 use tokio::sync::Mutex;
+use crate::handle::HandleEvent;
 use crate::hex::{Property, PropertyItem, PropertyValue};
 use crate::message::entity::PublishMessage;
-use crate::session::LinkMessage;
 use crate::tools::protocol::{MqttDup, MqttQos, MqttRetain};
 
 #[derive(Debug, Clone, Eq, Hash)]
@@ -84,7 +84,7 @@ impl TopicMessage {
 #[derive(Debug)]
 pub struct Topic {
     name: String,
-    senders: HashMap<ClientID, Sender<LinkMessage>>,
+    senders: HashMap<ClientID, Sender<HandleEvent>>,
 }
 
 impl Topic {
@@ -94,13 +94,13 @@ impl Topic {
 }
 
 impl Topic {
-    pub fn subscript<S: Into<ClientID>>(&mut self, client_id: S, sender: Sender<LinkMessage>) {
+    pub fn subscript<S: Into<ClientID>>(&mut self, client_id: S, sender: Sender<HandleEvent>) {
         let id = client_id.into();
         println!("subscript client id: {:?}", &id);
         self.senders.insert(id, sender);
     }
 
-    pub fn unsubscript<S: AsRef<ClientID>>(&mut self, client_id: S) -> Option<Sender<LinkMessage>> {
+    pub fn unsubscript<S: AsRef<ClientID>>(&mut self, client_id: S) -> Option<Sender<HandleEvent>> {
         if self.senders.contains_key(client_id.as_ref()) {
             return self.senders.remove(client_id.as_ref());
         }
@@ -118,7 +118,7 @@ impl Topic {
     pub async fn broadcast(&self, msg: &TopicMessage) {
         for (_, sender) in self.senders.iter() {
             // sender.send(LinkMessage::HandleMessage(msg.clone())).await;
-            if let Err(e) = sender.send(LinkMessage::HandleMessage(msg.clone())).await{
+            if let Err(e) = sender.send(HandleEvent::BroadcastEvent(msg.clone())).await{
                 println!("failed to broadcast message; err = {:?}", e);
             }
         }
@@ -158,13 +158,13 @@ impl Subscript {
         self.container.lock().await.get(topic_name.as_ref()).unwrap().contain(client_id)
     }
 
-    pub async fn new_subscript<S: AsRef<str>, SS: AsRef<ClientID>>(&self, topic_name: S, client_id: SS, sender: Sender<LinkMessage>) {
+    pub async fn new_subscript<S: AsRef<str>, SS: AsRef<ClientID>>(&self, topic_name: S, client_id: SS, sender: Sender<HandleEvent>) {
         let mut top = Topic::new(topic_name.as_ref());
         top.subscript(client_id.as_ref(), sender);
         self.add(topic_name.as_ref(), top).await;
     }
 
-    pub fn subscript<S: AsRef<str>, SS: AsRef<ClientID>>(&self, topic_name: S, client_id: SS, sender: Sender<LinkMessage>) {
+    pub fn subscript<S: AsRef<str>, SS: AsRef<ClientID>>(&self, topic_name: S, client_id: SS, sender: Sender<HandleEvent>) {
         match self.container.try_lock() {
             Ok(mut container) => {
                 if let Some(t) = container.get_mut(topic_name.as_ref()) {
@@ -205,7 +205,7 @@ impl Subscript {
         }
     }
 
-    pub async fn get_client<S: AsRef<str>, SS: AsRef<ClientID>>(&self, topic_name: S, client_id: SS) -> Sender<LinkMessage> {
+    pub async fn get_client<S: AsRef<str>, SS: AsRef<ClientID>>(&self, topic_name: S, client_id: SS) -> Sender<HandleEvent> {
         self.container.lock().await.get(topic_name.as_ref()).unwrap().senders.get(client_id.as_ref()).unwrap().clone()
     }
 }

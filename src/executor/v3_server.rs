@@ -5,12 +5,12 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio_rustls::rustls;
 use crate::message::MqttMessageKind;
-use crate::server::{MqttServerOption, ServerHandleKind};
-use crate::session::v3_server_link::Link;
-use crate::session::{LinkMessage, ServerSessionV3};
-use crate::session::LinkHandle;
+use crate::session::ServerSessionV3;
 use crate::tools::tls::{load_certs, load_keys};
 use tokio_rustls::TlsAcceptor;
+use crate::executor::{MqttServerOption, ReturnKind};
+use crate::handle::{HandleEvent, LinkHandle};
+use crate::handle::v3_server_handle::ServerHandler;
 
 pub struct MqttServer<F, Fut>
     where
@@ -79,34 +79,34 @@ impl<F, Fut> MqttServer<F, Fut>
     }
 }
 
-async fn run<S, F, Fut>(mut stream: S, handle: F)
+async fn run<S, F, Fut>(mut stream: S, callback: F)
     where
         F: Fn(ServerSessionV3, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
         Fut: Future<Output=()> + Send,
         S: AsyncReadExt + AsyncWriteExt + Unpin
 {
     let mut buf = [0; 1024];
-    let mut link = Link::new();
+    let mut handle = ServerHandler::new();
     loop {
         let res = tokio::select! {
             Ok(n) = stream.read(&mut buf) => {
                 if n != 0 {
                     println!("length: {}",n);
-                    link.send_message(LinkMessage::InputMessage(buf[0..n].to_vec())).await;
+                    handle.send_message(HandleEvent::InputEvent(buf[0..n].to_vec())).await;
                 }
                 None
             },
-            kind = link.handle(handle) => kind
+            kind = handle.execute(callback) => kind
         };
         if let Some(kind) = res {
             match kind {
-                ServerHandleKind::Response(data) => {
+                ReturnKind::Response(data) => {
                     println!("data: {:?}", data);
                     if let Err(e) = stream.write_all(data.as_slice()).await {
                         println!("failed to write to socket; err = {:?}", e);
                     }
                 }
-                ServerHandleKind::Exit => break
+                ReturnKind::Exit => break
             }
         }
     }
