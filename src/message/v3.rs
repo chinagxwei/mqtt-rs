@@ -101,6 +101,20 @@ impl MqttMessageV3 {
     }
 }
 
+impl MqttMessageV3 {
+    pub fn disconnect() -> Option<Vec<u8>> {
+        MqttMessageV3::Disconnect(DisconnectMessage::default()).to_vec()
+    }
+
+    pub fn ping() -> Option<Vec<u8>> {
+        MqttMessageV3::Pingreq(PingreqMessage::default()).to_vec()
+    }
+
+    pub fn pong() -> Option<Vec<u8>> {
+        MqttMessageV3::Pingresp(PingrespMessage::default()).to_vec()
+    }
+}
+
 impl MqttMessageVersion for MqttMessageV3 {
     fn version(&self) -> Option<MqttProtocolLevel> {
         match self {

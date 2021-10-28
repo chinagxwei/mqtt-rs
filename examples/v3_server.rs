@@ -1,7 +1,7 @@
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::str::FromStr;
 use mqtt_demo::executor::v3_server::MqttServer;
-use mqtt_demo::message::entity::{ConnackMessage, DisconnectMessage, PubackMessage, PubrecMessage, UnsubackMessage, SubackMessage, PubrelMessage, PubcompMessage};
+use mqtt_demo::message::entity::{ConnackMessage, DisconnectMessage, PubackMessage, PubrecMessage, UnsubackMessage, SubackMessage, PubrelMessage, PubcompMessage, PingrespMessage};
 use mqtt_demo::message::MqttMessageKind;
 use mqtt_demo::message::v3::MqttMessageV3;
 use mqtt_demo::session::{MqttSession, ServerSessionV3};
@@ -24,7 +24,7 @@ pub async fn handle_v3_message(session: ServerSessionV3, v3_kind: Option<MqttMes
     if let Some(v3) = v3_kind {
         match v3 {
             MqttMessageKind::RequestV3(ref msg) => {
-                let res_msg = handle_v3(&session, Some(msg)).await.expect("handle v3 message error");
+                let res_msg = handle_v3(&session, msg).await.expect("handle v3 message error");
                 if res_msg.is_disconnect() {
                     session.exit().await;
                 } else {
@@ -34,7 +34,7 @@ pub async fn handle_v3_message(session: ServerSessionV3, v3_kind: Option<MqttMes
             MqttMessageKind::RequestV3Vec(ref items) => {
                 let mut res = vec![];
                 for x in items {
-                    if let Some(res_msg) = handle_v3(&session, Some(x)).await {
+                    if let Some(res_msg) = handle_v3(&session, x).await {
                         res.push(res_msg.to_vec().unwrap());
                     }
                 }
@@ -45,37 +45,30 @@ pub async fn handle_v3_message(session: ServerSessionV3, v3_kind: Option<MqttMes
     }
 }
 
-async fn handle_v3(session: &ServerSessionV3, kind_opt: Option<&MqttMessageV3>) -> Option<MqttMessageV3> {
-    if let Some(kind) = kind_opt {
-        return match kind {
-            MqttMessageV3::Connect(_) => {
-                return Some(MqttMessageV3::Connack(ConnackMessage::default()));
+async fn handle_v3(session: &ServerSessionV3, kind: &MqttMessageV3) -> Option<MqttMessageV3> {
+    match kind {
+        MqttMessageV3::Connect(_) => {
+            return Some(MqttMessageV3::Connack(ConnackMessage::default()));
+        }
+        MqttMessageV3::Subscribe(msg) => {
+            session.subscribe(&msg.topic).await;
+            let sm = SubackMessage::from(msg);
+            println!("{:?}", sm);
+            return Some(MqttMessageV3::Suback(sm));
+        }
+        MqttMessageV3::Unsubscribe(msg) => Some(MqttMessageV3::Unsuback(UnsubackMessage::new(msg.message_id, None))),
+        MqttMessageV3::Publish(msg) => {
+            session.publish(msg).await;
+            match msg.qos {
+                MqttQos::Qos1 => return Some(MqttMessageV3::Puback(PubackMessage::new(msg.message_id))),
+                MqttQos::Qos2 => return Some(MqttMessageV3::Pubrec(PubrecMessage::new(msg.message_id))),
+                _ => return None
             }
-            MqttMessageV3::Subscribe(msg) => {
-                session.subscribe(&msg.topic).await;
-                let sm = SubackMessage::from(msg);
-                println!("{:?}", sm);
-                return Some(MqttMessageV3::Suback(sm));
-            }
-            MqttMessageV3::Unsubscribe(msg) => Some(MqttMessageV3::Unsuback(UnsubackMessage::new(msg.message_id, None))),
-            MqttMessageV3::Publish(msg) => {
-                session.publish(msg).await;
-                match msg.qos {
-                    MqttQos::Qos1 => return Some(MqttMessageV3::Puback(PubackMessage::new(msg.message_id))),
-                    MqttQos::Qos2 => return Some(MqttMessageV3::Pubrec(PubrecMessage::new(msg.message_id))),
-                    _ => return None
-                }
-            }
-            MqttMessageV3::Pubrec(msg) => {
-                Some(MqttMessageV3::Pubrel(PubrelMessage::from(msg)))
-            }
-            MqttMessageV3::Pubrel(msg) => {
-                Some(MqttMessageV3::Pubcomp(PubcompMessage::from(msg)))
-            }
-            MqttMessageV3::Pingresp(msg) => Some(MqttMessageV3::Pingresp(msg.clone())),
-            MqttMessageV3::Disconnect(_) => Some(MqttMessageV3::Disconnect(DisconnectMessage::default())),
-            _ => None
-        };
+        }
+        MqttMessageV3::Pubrec(msg) => { Some(MqttMessageV3::Pubrel(PubrelMessage::from(msg))) }
+        MqttMessageV3::Pubrel(msg) => { Some(MqttMessageV3::Pubcomp(PubcompMessage::from(msg))) }
+        MqttMessageV3::Pingreq(_) => { Some(MqttMessageV3::Pingresp(PingrespMessage::default())) }
+        MqttMessageV3::Disconnect(_) => Some(MqttMessageV3::Disconnect(DisconnectMessage::default())),
+        _ => None
     }
-    None
 }

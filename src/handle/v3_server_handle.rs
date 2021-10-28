@@ -1,7 +1,7 @@
 use std::future::Future;
 use tokio::sync::mpsc;
 use async_trait::async_trait;
-use crate::handle::{HandleEvent, LinkHandle};
+use crate::handle::{HandleEvent, ServerExecute};
 use crate::message::{MqttMessageKind, BaseMessage};
 use crate::session::ServerSessionV3;
 use crate::{SUBSCRIPT, MESSAGE_CONTAINER};
@@ -39,7 +39,7 @@ impl ServerHandler {
 }
 
 #[async_trait]
-impl LinkHandle for ServerHandler {
+impl ServerExecute for ServerHandler {
     type Ses = ServerSessionV3;
 
     async fn execute<F, Fut>(&mut self, f: F) -> Option<ReturnKind>
@@ -100,75 +100,60 @@ impl LinkHandle for ServerHandler {
 
 impl ServerHandler {
     fn init_session(&mut self, v3_request: &Option<MqttMessageKind>) {
-        if let Some(kind) = v3_request {
-            match kind {
-                RequestV3(v3) => {
-                    match v3 {
-                        Connect(connect_msg) => {
-                            println!("{:?}", connect_msg);
-                            self.session.init_protocol(
-                                connect_msg.protocol_name.clone(),
-                                connect_msg.protocol_level,
-                            );
-                            self.session.init(
-                                connect_msg.payload.client_id.clone().into(),
-                                connect_msg.will_flag,
-                                connect_msg.will_qos,
-                                connect_msg.will_retain,
-                                connect_msg.payload.will_topic.clone().unwrap(),
-                                connect_msg.payload.will_message.clone().unwrap(),
-                            );
-                            MESSAGE_CONTAINER.init(connect_msg.payload.client_id.clone().into());
-                        }
-                        _ => {}
-                    }
-                }
-                _ => {}
-            }
+        if let Some(MqttMessageKind::RequestV3(MqttMessageV3::Connect(connect_msg))) = v3_request {
+            println!("{:?}", connect_msg);
+            self.session.init_protocol(
+                connect_msg.protocol_name.clone(),
+                connect_msg.protocol_level,
+            );
+            self.session.init(
+                connect_msg.payload.client_id.clone().into(),
+                connect_msg.will_flag,
+                connect_msg.will_qos,
+                connect_msg.will_retain,
+                connect_msg.payload.will_topic.clone().unwrap(),
+                connect_msg.payload.will_message.clone().unwrap(),
+            );
+            MESSAGE_CONTAINER.init(connect_msg.payload.client_id.clone().into());
         }
     }
 
     async fn handle_v3_request(&self, v3_request: &mut Option<MqttMessageKind>) {
-        if let Some(kind) = v3_request {
-            match kind {
-                RequestV3(v3) => {
-                    match v3 {
-                        Unsubscribe(msg) => {
-                            if SUBSCRIPT.contain(&msg.topic).await {
-                                if SUBSCRIPT.is_subscript(&msg.topic, self.session.get_client_id()).await {
-                                    SUBSCRIPT.unsubscript(&msg.topic, self.session.get_client_id()).await;
-                                }
-                            }
-                            msg.protocol_level = self.session.protocol_level.clone();
+        if let Some(MqttMessageKind::RequestV3(v3)) = v3_request {
+            match v3 {
+                Unsubscribe(msg) => {
+                    if SUBSCRIPT.contain(&msg.topic).await {
+                        if SUBSCRIPT.is_subscript(&msg.topic, self.session.get_client_id()).await {
+                            SUBSCRIPT.unsubscript(&msg.topic, self.session.get_client_id()).await;
                         }
-                        Pubrel(msg) => {
-                            MESSAGE_CONTAINER.complete(self.session.get_client_id(), msg.message_id).await;
-                            msg.protocol_level = self.session.protocol_level;
-                        }
-                        Disconnect(msg) => {
-                            if self.session.is_will_flag() {
-                                if let Some(ref topic_msg) = self.session.get_will_message() {
-                                    SUBSCRIPT.broadcast(self.session.get_will_topic(), topic_msg).await;
-                                }
-                            }
-                            SUBSCRIPT.exit(self.session.get_client_id()).await;
-
-                            if self.session.clean_session.is_some() && self.session.clean_session.unwrap() == MqttCleanSession::Enable {
-                                MESSAGE_CONTAINER.remove(self.session.get_client_id()).await;
-                            }
-                            msg.protocol_level = self.session.protocol_level;
-                        }
-                        Connack(msg) => msg.protocol_level = self.session.protocol_level,
-                        Publish(msg) => msg.protocol_level = self.session.protocol_level,
-                        Puback(msg) => msg.protocol_level = self.session.protocol_level,
-                        Pubrec(msg) => msg.protocol_level = self.session.protocol_level,
-                        Pubcomp(msg) => msg.protocol_level = self.session.protocol_level,
-                        Subscribe(msg) => msg.protocol_level = self.session.protocol_level,
-                        Suback(msg) => msg.protocol_level = self.session.protocol_level,
-                        Unsuback(msg) => msg.protocol_level = self.session.protocol_level,
-                        _ => {}
                     }
+                    msg.protocol_level = self.session.protocol_level.clone();
                 }
+                Pubrel(msg) => {
+                    MESSAGE_CONTAINER.complete(self.session.get_client_id(), msg.message_id).await;
+                    msg.protocol_level = self.session.protocol_level;
+                }
+                Disconnect(msg) => {
+                    if self.session.is_will_flag() {
+                        if let Some(ref topic_msg) = self.session.get_will_message() {
+                            SUBSCRIPT.broadcast(self.session.get_will_topic(), topic_msg).await;
+                        }
+                    }
+                    SUBSCRIPT.exit(self.session.get_client_id()).await;
+
+                    if self.session.clean_session.is_some() && self.session.clean_session.unwrap() == MqttCleanSession::Enable {
+                        MESSAGE_CONTAINER.remove(self.session.get_client_id()).await;
+                    }
+                    msg.protocol_level = self.session.protocol_level;
+                }
+                Connack(msg) => msg.protocol_level = self.session.protocol_level,
+                Publish(msg) => msg.protocol_level = self.session.protocol_level,
+                Puback(msg) => msg.protocol_level = self.session.protocol_level,
+                Pubrec(msg) => msg.protocol_level = self.session.protocol_level,
+                Pubcomp(msg) => msg.protocol_level = self.session.protocol_level,
+                Subscribe(msg) => msg.protocol_level = self.session.protocol_level,
+                Suback(msg) => msg.protocol_level = self.session.protocol_level,
+                Unsuback(msg) => msg.protocol_level = self.session.protocol_level,
                 _ => {}
             }
         }

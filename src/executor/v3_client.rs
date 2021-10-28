@@ -11,8 +11,8 @@ use tokio::sync::mpsc::Sender;
 use tokio_rustls::rustls::OwnedTrustAnchor;
 use tokio_rustls::{rustls, webpki, TlsConnector};
 use crate::executor::{MqttClientOption, ReturnKind};
-use crate::handle::{HandleEvent, LinkHandle};
-use crate::handle::v3_client_handle::ClientHandle;
+use crate::handle::{HandleEvent, ClientExecute};
+use crate::handle::v3_client_handle::ClientHandleV3;
 use crate::message::MqttMessageKind;
 use crate::message::entity::{ConnectMessage, DisconnectMessage, PingreqMessage, PublishMessage, SubscribeMessage, UnsubscribeMessage};
 use crate::message::v3::MqttMessageV3;
@@ -74,8 +74,7 @@ impl<F, Fut> MqttClient<F, Fut>
 
     pub async fn disconnect(&self) {
         if let Some(sender) = self.sender.as_ref() {
-            let msg: MqttMessageV3 = DisconnectMessage::default().into();
-            sender.send(HandleEvent::OutputEvent(msg.to_vec().unwrap())).await;
+            sender.send(HandleEvent::OutputEvent(MqttMessageV3::disconnect().unwrap())).await;
         }
     }
 
@@ -84,10 +83,10 @@ impl<F, Fut> MqttClient<F, Fut>
         socket.connect(self.address).await.unwrap()
     }
 
-    fn init_handle(&mut self) -> ClientHandle {
+    fn init_handle(&mut self) -> ClientHandleV3 {
         let (sender, receiver) = mpsc::channel(512);
         self.sender = Some(sender.clone());
-        ClientHandle::new(ClientSessionV3::new(sender), receiver)
+        ClientHandleV3::new(ClientSessionV3::new(sender), receiver)
     }
 
     // fn tls_connector(&self) -> Option<TlsConnector> {
@@ -127,19 +126,36 @@ impl<F, Fut> MqttClient<F, Fut>
     //     }
     // }
 
-    pub async fn connect(&mut self) {
-        if self.handle.is_none() { return; }
+    pub async fn connect(&mut self,) -> Option<mpsc::Receiver<String>> {
+        if self.handle.is_none() { return None; }
         let callback = **self.handle.as_ref().unwrap();
         let stream = self.init().await;
         let handle = self.init_handle();
         let config = self.config.clone();
-        // tokio::spawn(async move {
-            run(stream, callback, handle, config).await;
-        // });
+        let (tx, rx) = mpsc::channel(512);
+        tokio::spawn(async move {
+            run(stream, callback, Some(tx), handle, config).await;
+        });
+        Some(rx)
     }
 }
 
-async fn run<S, F, Fut>(mut stream: S, callback: F, mut handle: ClientHandle, config: Config)
+impl<F, Fut> Drop for MqttClient<F, Fut>
+    where
+        F: Fn(ClientSessionV3, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
+        Fut: Future<Output=()> + Send,
+{
+    fn drop(&mut self) {
+        let sender = self.sender.clone();
+        tokio::spawn(async move {
+            if let Some(sender) = sender.as_ref() {
+                sender.send(HandleEvent::OutputEvent(MqttMessageV3::disconnect().unwrap())).await;
+            }
+        });
+    }
+}
+
+async fn run<S, F, Fut>(mut stream: S, callback: F, sender: Option<mpsc::Sender<String>>, mut handle: ClientHandleV3, config: Config)
     where
         F: Fn(ClientSessionV3, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
         Fut: Future<Output=()> + Send,
@@ -150,17 +166,17 @@ async fn run<S, F, Fut>(mut stream: S, callback: F, mut handle: ClientHandle, co
     handle.send_message(HandleEvent::OutputEvent(msg.to_vec().unwrap())).await;
     let mut buffer = [0; 1024];
     loop {
+        let cp_sender = sender.clone();
         let res = tokio::select! {
             _ = interval.tick() => {
-                let msg = MqttMessageV3::Pingreq(PingreqMessage::default());
-                handle.send_message(HandleEvent::OutputEvent(msg.to_vec().unwrap())).await;
+                handle.send_message(HandleEvent::OutputEvent(MqttMessageV3::ping().unwrap())).await;
                 None
             },
             Ok(n) = stream.read(&mut buffer) => {
                 if n != 0 {handle.send_message(HandleEvent::InputEvent(buffer[0..n].to_vec())).await;}
                 None
             },
-            kind = handle.execute(callback) => kind
+            kind = handle.execute(callback, cp_sender) => kind
         };
         if let Some(kind) = res {
             match kind {

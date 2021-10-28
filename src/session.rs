@@ -1,9 +1,9 @@
 use std::future::Future;
-use tokio::sync::mpsc::Sender;
 use crate::message::MqttMessageKind;
 use crate::subscript::{ClientID, TopicMessage};
 use crate::tools::protocol::{MqttCleanSession, MqttProtocolLevel, MqttQos, MqttRetain, MqttWillFlag};
 use async_trait::async_trait;
+use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::SendError;
 use crate::handle::HandleEvent;
 use crate::message::entity::PublishMessage;
@@ -20,7 +20,7 @@ pub trait MqttSession: Clone {
 
 #[derive(Clone)]
 pub struct ClientSessionV3 {
-    sender: Sender<HandleEvent>,
+    sender: mpsc::Sender<HandleEvent>,
 }
 
 impl ClientSessionV3 {
@@ -41,7 +41,7 @@ impl MqttSession for ClientSessionV3 {
 }
 
 impl ClientSessionV3 {
-    pub fn new(sender: Sender<HandleEvent>) -> ClientSessionV3 {
+    pub fn new(sender: mpsc::Sender<HandleEvent>) -> ClientSessionV3 {
         ClientSessionV3 {
             sender
         }
@@ -50,7 +50,7 @@ impl ClientSessionV3 {
 
 #[derive(Clone)]
 pub struct ServerSessionV3 {
-    sender: Sender<HandleEvent>,
+    sender: mpsc::Sender<HandleEvent>,
     pub(crate) clean_session: Option<MqttCleanSession>,
     client_id: Option<ClientID>,
     protocol_name: Option<String>,
@@ -63,7 +63,7 @@ pub struct ServerSessionV3 {
 }
 
 impl ServerSessionV3 {
-    pub fn new(sender: Sender<HandleEvent>) -> ServerSessionV3 {
+    pub fn new(sender: mpsc::Sender<HandleEvent>) -> ServerSessionV3 {
         ServerSessionV3 {
             client_id: None,
             protocol_name: None,
