@@ -20,7 +20,7 @@ use crate::session::ClientSessionV3;
 use crate::tools::config::Config;
 use crate::tools::protocol::{MqttCleanSession, MqttDup, MqttQos, MqttRetain};
 
-struct MqttClient<F, Fut>
+pub struct MqttClient<F, Fut>
     where
         F: Fn(ClientSessionV3, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
         Fut: Future<Output=()> + Send,
@@ -133,9 +133,9 @@ impl<F, Fut> MqttClient<F, Fut>
         let stream = self.init().await;
         let handle = self.init_handle();
         let config = self.config.clone();
-        tokio::spawn(async move {
+        // tokio::spawn(async move {
             run(stream, callback, handle, config).await;
-        });
+        // });
     }
 }
 
@@ -145,14 +145,15 @@ async fn run<S, F, Fut>(mut stream: S, callback: F, mut handle: ClientHandle, co
         Fut: Future<Output=()> + Send,
         S: AsyncReadExt + AsyncWriteExt + Unpin
 {
-    let mut interval = tokio::time::interval(Duration::from_secs(config.heart_tick()));
-    let msg = ConnectMessage::new(MqttCleanSession::Enable, config);
-    handle.send_message(HandleEvent::OutputEvent(msg.bytes.unwrap())).await;
+    let mut interval = tokio::time::interval(Duration::from_secs(config.keep_alive() as u64));
+    let msg: MqttMessageV3 = ConnectMessage::new(MqttCleanSession::Enable, config).into();
+    handle.send_message(HandleEvent::OutputEvent(msg.to_vec().unwrap())).await;
     let mut buffer = [0; 1024];
     loop {
         let res = tokio::select! {
             _ = interval.tick() => {
-                handle.send_message(HandleEvent::OutputEvent(PingreqMessage::default().bytes)).await;
+                let msg = MqttMessageV3::Pingreq(PingreqMessage::default());
+                handle.send_message(HandleEvent::OutputEvent(msg.to_vec().unwrap())).await;
                 None
             },
             Ok(n) = stream.read(&mut buffer) => {
@@ -164,7 +165,7 @@ async fn run<S, F, Fut>(mut stream: S, callback: F, mut handle: ClientHandle, co
         if let Some(kind) = res {
             match kind {
                 ReturnKind::Response(data) => {
-                    println!("data: {:?}", data);
+                    println!("client output: {:?}", data);
                     if let Err(e) = stream.write_all(data.as_slice()).await {
                         println!("failed to write to socket; err = {:?}", e);
                     }

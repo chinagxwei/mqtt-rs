@@ -2,8 +2,9 @@ use crate::tools::types::TypeKind;
 use crate::tools::un_pack_tool::get_type;
 use crate::tools::protocol::{MqttProtocolLevel, MqttDup, MqttQos, MqttRetain, MqttCleanSession, MqttWillFlag, MqttPasswordFlag, MqttUsernameFlag};
 use crate::hex::PropertyItem;
-use crate::message::entity::{DisconnectMessage, PingrespMessage};
+use crate::message::entity::{DisconnectMessage, PingreqMessage, PingrespMessage};
 use crate::message::v3::MqttMessageV3;
+use crate::message::v3::MqttMessageV3::Pingreq;
 use crate::packet::{v3_unpacket, v5_unpacket};
 use crate::message::v5::MqttMessageV5;
 
@@ -87,7 +88,7 @@ impl MqttMessageKind {
             TypeKind::SUBACK => { Some(Self::RequestV3(v3_unpacket::suback(base_msg))) }
             TypeKind::UNSUBSCRIBE => { Some(Self::RequestV3Vec(v3_unpacket::unsubscribe(base_msg))) }
             TypeKind::UNSUBACK => { Some(Self::RequestV3(v3_unpacket::unsuback(base_msg))) }
-            TypeKind::PINGREQ => { Some(Self::RequestV3(MqttMessageV3::Pingresp(PingrespMessage::from(base_msg)))) }
+            TypeKind::PINGREQ => { Some(Self::RequestV3(MqttMessageV3::Pingreq(PingreqMessage::from(base_msg)))) }
             TypeKind::PINGRESP => { Some(Self::RequestV3(MqttMessageV3::Pingresp(PingrespMessage::from(base_msg)))) }
             TypeKind::DISCONNECT => { Some(Self::RequestV3(MqttMessageV3::Disconnect((DisconnectMessage::default())))) }
             _ => { None }

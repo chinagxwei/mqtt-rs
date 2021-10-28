@@ -43,6 +43,7 @@ impl LinkHandle for ClientHandle {
             Some(msg) => {
                 match msg {
                     HandleEvent::InputEvent(data) => {
+                        println!("client input: {:?}", data);
                         let base_msg = BaseMessage::from(data);
                         let v3_request = MqttMessageKind::to_v3_request(base_msg);
                         f(self.session.clone(), v3_request).await;

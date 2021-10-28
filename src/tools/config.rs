@@ -39,8 +39,7 @@ pub struct Config {
     delay: u32,
     max_attempts: i32,
     will: Will,
-    properties: Option<Property>,
-    heart_tick:u64
+    properties: Option<Property>
 }
 
 impl Config {
@@ -71,9 +70,6 @@ impl Config {
     pub fn will(&self) -> &Will {
         &self.will
     }
-    pub fn heart_tick(&self) -> u64 {
-        self.heart_tick
-    }
 }
 
 #[derive(Debug)]
@@ -86,8 +82,7 @@ pub struct ConfigBuilder {
     protocol_level: Option<MqttProtocolLevel>,
     delay: Option<u32>,
     max_attempts: Option<i32>,
-    will: Option<Will>,
-    heart_tick:Option<u64>
+    will: Option<Will>
 }
 
 impl ConfigBuilder {
@@ -101,8 +96,7 @@ impl ConfigBuilder {
             protocol_level: None,
             delay: None,
             max_attempts: None,
-            will: None,
-            heart_tick: None
+            will: None
         }
     }
 
@@ -146,11 +140,6 @@ impl ConfigBuilder {
         self
     }
 
-    pub fn heart_tick(mut self, heart_tick: u64)-> ConfigBuilder {
-        self.heart_tick = Option::from(heart_tick);
-        self
-    }
-
     fn check(&self) -> bool {
         self.client_id.is_some() &&
             self.keep_alive.is_some() &&
@@ -176,8 +165,7 @@ impl ConfigBuilder {
                 delay: self.delay.take().unwrap(),
                 max_attempts: self.max_attempts.take().unwrap(),
                 will: self.will.take().unwrap(),
-                properties: None,
-                heart_tick: self.heart_tick.unwrap()
+                properties: None
             }
         )
     }
@@ -201,8 +189,7 @@ impl Default for ConfigBuilder {
                 will_retain: MqttRetain::Disable,
                 will_topic: None,
                 will_message: None,
-            }),
-            heart_tick: Some(30)
+            })
         }
     }
 }

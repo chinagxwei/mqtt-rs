@@ -49,8 +49,9 @@ impl LinkHandle for ServerHandler {
     {
         return match self.receiver.recv().await {
             Some(msg) => return match msg {
-                HandleEvent::InputEvent(msg) => {
-                    let base_msg = BaseMessage::from(msg);
+                HandleEvent::InputEvent(data) => {
+                    println!("server input: {:?}", data);
+                    let base_msg = BaseMessage::from(data);
                     let mut v3_request = MqttMessageKind::to_v3_request(base_msg);
                     self.init_session(&v3_request);
                     self.handle_v3_request(&mut v3_request).await;

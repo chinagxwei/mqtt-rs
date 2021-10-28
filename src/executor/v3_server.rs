@@ -98,7 +98,7 @@ async fn run<S, F, Fut>(mut stream: S, callback: F)
         if let Some(kind) = res {
             match kind {
                 ReturnKind::Response(data) => {
-                    println!("data: {:?}", data);
+                    println!("server output: {:?}", data);
                     if let Err(e) = stream.write_all(data.as_slice()).await {
                         println!("failed to write to socket; err = {:?}", e);
                     }

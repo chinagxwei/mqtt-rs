@@ -147,5 +147,16 @@ impl_mqtt_message_v3!(PingreqMessage,Pingreq);
 impl_mqtt_message_v3!(PingrespMessage,Pingresp);
 impl_mqtt_message_v3!(DisconnectMessage,Disconnect);
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        let msg = MqttMessageV3::Pingresp(PingrespMessage::default());
+        println!("{:?}", msg.to_vec())
+    }
+}
+
 
 
