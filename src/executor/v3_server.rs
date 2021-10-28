@@ -90,10 +90,7 @@ async fn run<S, F, Fut>(mut stream: S, callback: F)
     loop {
         let res = tokio::select! {
             Ok(n) = stream.read(&mut buf) => {
-                if n != 0 {
-                    println!("length: {}",n);
-                    handle.send_message(HandleEvent::InputEvent(buf[0..n].to_vec())).await;
-                }
+                if n != 0 {handle.send_message(HandleEvent::InputEvent(buf[0..n].to_vec())).await;}
                 None
             },
             kind = handle.execute(callback) => kind

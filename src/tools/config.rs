@@ -40,6 +40,7 @@ pub struct Config {
     max_attempts: i32,
     will: Will,
     properties: Option<Property>,
+    heart_tick:u64
 }
 
 impl Config {
@@ -70,6 +71,9 @@ impl Config {
     pub fn will(&self) -> &Will {
         &self.will
     }
+    pub fn heart_tick(&self) -> u64 {
+        self.heart_tick
+    }
 }
 
 #[derive(Debug)]
@@ -83,6 +87,7 @@ pub struct ConfigBuilder {
     delay: Option<u32>,
     max_attempts: Option<i32>,
     will: Option<Will>,
+    heart_tick:Option<u64>
 }
 
 impl ConfigBuilder {
@@ -97,6 +102,7 @@ impl ConfigBuilder {
             delay: None,
             max_attempts: None,
             will: None,
+            heart_tick: None
         }
     }
 
@@ -140,6 +146,11 @@ impl ConfigBuilder {
         self
     }
 
+    pub fn heart_tick(mut self, heart_tick: u64)-> ConfigBuilder {
+        self.heart_tick = Option::from(heart_tick);
+        self
+    }
+
     fn check(&self) -> bool {
         self.client_id.is_some() &&
             self.keep_alive.is_some() &&
@@ -166,6 +177,7 @@ impl ConfigBuilder {
                 max_attempts: self.max_attempts.take().unwrap(),
                 will: self.will.take().unwrap(),
                 properties: None,
+                heart_tick: self.heart_tick.unwrap()
             }
         )
     }
@@ -190,6 +202,7 @@ impl Default for ConfigBuilder {
                 will_topic: None,
                 will_message: None,
             }),
+            heart_tick: Some(30)
         }
     }
 }

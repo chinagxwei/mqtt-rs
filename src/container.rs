@@ -60,6 +60,12 @@ impl MessageContainer {
         MessageContainer { inner: Arc::new(Mutex::new(HashMap::default())) }
     }
 
+    pub async fn init(&self, client_id: ClientID){
+        if !self.inner.lock().await.contains_key(&client_id) {
+            self.inner.lock().await.insert(client_id, ClientMessageFrames::new());
+        }
+    }
+
     pub async fn append(&self, client_id: ClientID, message_id: u16, frame: MessageFrame) {
         if self.inner.lock().await.contains_key(&client_id) {
             if let Some(frames) = self.inner.lock().await.get_mut(&client_id) {

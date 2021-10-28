@@ -145,10 +145,10 @@ async fn run<S, F, Fut>(mut stream: S, callback: F, mut handle: ClientHandle, co
         Fut: Future<Output=()> + Send,
         S: AsyncReadExt + AsyncWriteExt + Unpin
 {
+    let mut interval = tokio::time::interval(Duration::from_secs(config.heart_tick()));
     let msg = ConnectMessage::new(MqttCleanSession::Enable, config);
     handle.send_message(HandleEvent::OutputEvent(msg.bytes.unwrap())).await;
     let mut buffer = [0; 1024];
-    let mut interval = tokio::time::interval(Duration::from_secs(30));
     loop {
         let res = tokio::select! {
             _ = interval.tick() => {
@@ -156,10 +156,7 @@ async fn run<S, F, Fut>(mut stream: S, callback: F, mut handle: ClientHandle, co
                 None
             },
             Ok(n) = stream.read(&mut buffer) => {
-                if n != 0 {
-                    println!("length: {}",n);
-                    handle.send_message(HandleEvent::OutputEvent(buffer[0..n].to_vec())).await;
-                }
+                if n != 0 {handle.send_message(HandleEvent::InputEvent(buffer[0..n].to_vec())).await;}
                 None
             },
             kind = handle.execute(callback) => kind

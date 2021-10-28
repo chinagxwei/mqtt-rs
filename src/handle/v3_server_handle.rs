@@ -117,6 +117,7 @@ impl ServerHandler {
                                 connect_msg.payload.will_topic.clone().unwrap(),
                                 connect_msg.payload.will_message.clone().unwrap(),
                             );
+                            MESSAGE_CONTAINER.init(connect_msg.payload.client_id.clone().into());
                         }
                         _ => {}
                     }
