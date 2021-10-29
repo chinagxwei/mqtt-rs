@@ -11,18 +11,18 @@ use tokio::sync::mpsc::Sender;
 use tokio_rustls::rustls::OwnedTrustAnchor;
 use tokio_rustls::{rustls, webpki, TlsConnector};
 use crate::executor::{MqttClientOption, ReturnKind};
-use crate::handle::{HandleEvent, ClientExecute};
+use crate::handle::{HandleEvent, ClientExecute, Response};
 use crate::handle::v3_client_handle::ClientHandleV3;
 use crate::message::MqttMessageKind;
 use crate::message::entity::{ConnectMessage, DisconnectMessage, PingreqMessage, PublishMessage, SubscribeMessage, UnsubscribeMessage};
 use crate::message::v3::MqttMessageV3;
-use crate::session::ClientSessionV3;
+use crate::session::ClientSession;
 use crate::tools::config::Config;
 use crate::tools::protocol::{MqttCleanSession, MqttDup, MqttQos, MqttRetain};
 
 pub struct MqttClient<F, Fut>
     where
-        F: Fn(ClientSessionV3, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
+        F: Fn(ClientSession, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
         Fut: Future<Output=()> + Send,
 {
     config: Config,
@@ -34,7 +34,7 @@ pub struct MqttClient<F, Fut>
 
 impl<F, Fut> MqttClient<F, Fut>
     where
-        F: Fn(ClientSessionV3, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
+        F: Fn(ClientSession, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
         Fut: Future<Output=()> + Send,
 {
     pub fn new(config: Config, address: SocketAddr) -> MqttClient<F, Fut> {
@@ -53,28 +53,46 @@ impl<F, Fut> MqttClient<F, Fut>
 
     pub async fn publish(&self, topic: String, message: String, qos: MqttQos, dup: MqttDup, retain: MqttRetain) {
         if let Some(sender) = self.sender.as_ref() {
-            let msg: MqttMessageV3 = PublishMessage::new(qos, dup, retain, topic, 0, message, None).into();
-            sender.send(HandleEvent::OutputEvent(msg.to_vec().unwrap())).await;
+            let msg = MqttMessageV3::Publish(PublishMessage::new(qos, dup, retain, topic, 0, message, None))
+                .to_vec()
+                .unwrap();
+            sender.send(
+                HandleEvent::OutputEvent(
+                    Response(msg, self.config.protocol_level())
+                )
+            ).await;
         }
     }
 
     pub async fn subscribe(&self, topic: String, qos: MqttQos) {
         if let Some(sender) = self.sender.as_ref() {
-            let msg: MqttMessageV3 = SubscribeMessage::new(0, topic, qos).into();
-            sender.send(HandleEvent::OutputEvent(msg.to_vec().unwrap())).await;
+            let msg = MqttMessageV3::Subscribe(SubscribeMessage::new(0, topic, qos))
+                .to_vec()
+                .unwrap();
+            sender.send(
+                HandleEvent::OutputEvent(
+                    Response(msg, self.config.protocol_level())
+                )
+            ).await;
         }
     }
 
     pub async fn unsubscribe(&self, topic: String) {
         if let Some(sender) = self.sender.as_ref() {
-            let msg: MqttMessageV3 = UnsubscribeMessage::new(0, topic).into();
-            sender.send(HandleEvent::OutputEvent(msg.to_vec().unwrap())).await;
+            let msg = MqttMessageV3::Unsubscribe(UnsubscribeMessage::new(0, topic))
+                .to_vec()
+                .unwrap();
+            sender.send(
+                HandleEvent::OutputEvent(
+                    Response(msg, self.config.protocol_level())
+                )
+            ).await;
         }
     }
 
     pub async fn disconnect(&self) {
         if let Some(sender) = self.sender.as_ref() {
-            sender.send(HandleEvent::OutputEvent(MqttMessageV3::disconnect().unwrap())).await;
+            sender.send(HandleEvent::ExitEvent(true)).await;
         }
     }
 
@@ -86,7 +104,14 @@ impl<F, Fut> MqttClient<F, Fut>
     fn init_handle(&mut self) -> ClientHandleV3 {
         let (sender, receiver) = mpsc::channel(512);
         self.sender = Some(sender.clone());
-        ClientHandleV3::new(ClientSessionV3::new(self.config.client_id().clone(), sender), receiver)
+        ClientHandleV3::new(
+            ClientSession::new(
+                self.config.client_id().clone(),
+                self.config.protocol_level(),
+                sender,
+            ),
+            receiver,
+        )
     }
 
     // fn tls_connector(&self) -> Option<TlsConnector> {
@@ -142,7 +167,7 @@ impl<F, Fut> MqttClient<F, Fut>
 
 impl<F, Fut> Drop for MqttClient<F, Fut>
     where
-        F: Fn(ClientSessionV3, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
+        F: Fn(ClientSession, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
         Fut: Future<Output=()> + Send,
 {
     fn drop(&mut self) {
@@ -159,19 +184,30 @@ impl<F, Fut> Drop for MqttClient<F, Fut>
 
 async fn run<S, F, Fut>(mut stream: S, callback: F, sender: Option<mpsc::Sender<String>>, mut handle: ClientHandleV3, config: Config)
     where
-        F: Fn(ClientSessionV3, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
+        F: Fn(ClientSession, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
         Fut: Future<Output=()> + Send,
         S: AsyncReadExt + AsyncWriteExt + Unpin
 {
     let mut interval = tokio::time::interval(Duration::from_secs(config.keep_alive() as u64));
-    let msg: MqttMessageV3 = ConnectMessage::new(MqttCleanSession::Enable, config).into();
-    handle.send_message(HandleEvent::OutputEvent(msg.to_vec().unwrap())).await;
+
+    let level = config.protocol_level();
+
+    let msg = MqttMessageV3::Connect(ConnectMessage::new(MqttCleanSession::Enable, config))
+        .to_vec()
+        .unwrap();
+    handle.send_message(
+        HandleEvent::OutputEvent(
+            Response(msg, level)
+        )
+    ).await;
+
     let mut buffer = [0; 1024];
+
     loop {
         let cp_sender = sender.clone();
         let res = tokio::select! {
             _ = interval.tick() => {
-                handle.send_message(HandleEvent::OutputEvent(MqttMessageV3::ping().unwrap())).await;
+                handle.send_message(HandleEvent::OutputEvent(Response(MqttMessageV3::ping().unwrap(),level))).await;
                 None
             },
             Ok(n) = stream.read(&mut buffer) => {

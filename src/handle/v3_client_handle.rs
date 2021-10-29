@@ -6,22 +6,22 @@ use crate::executor::ReturnKind;
 use crate::handle::{ClientExecute, HandleEvent, ServerExecute};
 use crate::message::{MqttMessageKind, BaseMessage};
 use crate::message::v3::MqttMessageV3;
-use crate::session::{ClientSessionV3, MqttSession};
+use crate::session::{ClientSession, MqttSession};
 
 pub struct ClientHandleV3 {
-    session: ClientSessionV3,
+    session: ClientSession,
     receiver: mpsc::Receiver<HandleEvent>,
 }
 
 impl ClientHandleV3 {
-    pub fn new(session: ClientSessionV3, receiver: mpsc::Receiver<HandleEvent>) -> ClientHandleV3 {
+    pub fn new(session: ClientSession, receiver: mpsc::Receiver<HandleEvent>) -> ClientHandleV3 {
         ClientHandleV3 {
             session,
             receiver,
         }
     }
 
-    pub fn session(&self) -> &ClientSessionV3 {
+    pub fn session(&self) -> &ClientSession {
         &self.session
     }
 
@@ -32,7 +32,7 @@ impl ClientHandleV3 {
 
 #[async_trait]
 impl ClientExecute for ClientHandleV3 {
-    type Ses = ClientSessionV3;
+    type Ses = ClientSession;
 
     async fn execute<F, Fut>(&mut self, f: F, sender: Option<mpsc::Sender<String>>) -> Option<ReturnKind>
         where
@@ -55,7 +55,7 @@ impl ClientExecute for ClientHandleV3 {
                         None
                     }
                     HandleEvent::OutputEvent(data) => {
-                        Some(ReturnKind::Response(data))
+                        Some(ReturnKind::Response(data.0))
                     }
                     HandleEvent::ExitEvent(_) => {
                         Some(ReturnKind::Exit)

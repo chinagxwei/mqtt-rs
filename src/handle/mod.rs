@@ -5,15 +5,18 @@ use crate::executor::ReturnKind;
 use crate::message::MqttMessageKind;
 use crate::session::MqttSession;
 use crate::subscript::TopicMessage;
-
+use crate::tools::protocol::MqttProtocolLevel;
 pub mod v3_server_handle;
 pub mod v3_client_handle;
+
+#[derive(Debug)]
+pub struct Response(pub Vec<u8>, pub MqttProtocolLevel);
 
 #[derive(Debug)]
 pub enum HandleEvent {
     InputEvent(Vec<u8>),
     BroadcastEvent(TopicMessage),
-    OutputEvent(Vec<u8>),
+    OutputEvent(Response),
     ExitEvent(bool),
 }
 

@@ -5,9 +5,10 @@ use crate::tools::protocol::{MqttCleanSession, MqttProtocolLevel, MqttQos, MqttR
 use async_trait::async_trait;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::SendError;
-use crate::handle::HandleEvent;
+use crate::handle::{HandleEvent, Response};
 use crate::message::entity::{PublishMessage, SubscribeMessage};
 use crate::message::v3::MqttMessageV3;
+use crate::message::v5::MqttMessageV5;
 use crate::SUBSCRIPT;
 
 #[async_trait]
@@ -22,27 +23,37 @@ pub trait MqttSession: Clone {
 
 
 #[derive(Clone)]
-pub struct ClientSessionV3 {
+pub struct ClientSession {
     session_id: String,
+    protocol_level: MqttProtocolLevel,
     sender: mpsc::Sender<HandleEvent>,
 }
 
 #[async_trait]
-impl MqttSession for ClientSessionV3 {
+impl MqttSession for ClientSession {
     fn session_id(&self) -> &String {
         &self.session_id
     }
 
     async fn publish(&self, msg: &PublishMessage) {
-        let msg = MqttMessageV3::Publish(msg.clone()).to_vec().unwrap();
-        if let Err(e) = self.sender.send(HandleEvent::OutputEvent(msg)).await {
+
+        let msg = if self.protocol_level == MqttProtocolLevel::Level5 {
+            MqttMessageV5::Publish(msg.clone()).to_vec().unwrap()
+        }else{
+            MqttMessageV3::Publish(msg.clone()).to_vec().unwrap()
+        };
+        if let Err(e) = self.sender.send(HandleEvent::OutputEvent(Response(msg, self.protocol_level))).await {
             println!("failed to send subscribe message; err = {:?}", e);
         }
     }
 
     async fn subscribe(&self, topic: &String) {
-        let msg = MqttMessageV3::Subscribe(SubscribeMessage::new(0, topic.clone(), MqttQos::Qos1)).to_vec().unwrap();
-        if let Err(e) = self.sender.send(HandleEvent::OutputEvent(msg)).await {
+        let msg = if self.protocol_level == MqttProtocolLevel::Level5 {
+            MqttMessageV5::Subscribe(SubscribeMessage::new(0, topic.clone(), MqttQos::Qos1)).to_vec().unwrap()
+        }else{
+            MqttMessageV3::Subscribe(SubscribeMessage::new(0, topic.clone(), MqttQos::Qos1)).to_vec().unwrap()
+        };
+        if let Err(e) = self.sender.send(HandleEvent::OutputEvent(Response(msg, self.protocol_level))).await {
             println!("failed to send subscribe message; err = {:?}", e);
         }
     }
@@ -54,7 +65,7 @@ impl MqttSession for ClientSessionV3 {
     }
 
     async fn send(&self, msg: Vec<u8>) {
-        self.sender.send(HandleEvent::OutputEvent(msg));
+        self.sender.send(HandleEvent::OutputEvent(Response(msg, self.protocol_level)));
     }
 
     async fn send_event(&self, event: HandleEvent) {
@@ -62,10 +73,11 @@ impl MqttSession for ClientSessionV3 {
     }
 }
 
-impl ClientSessionV3 {
-    pub fn new(session_id: String, sender: mpsc::Sender<HandleEvent>) -> ClientSessionV3 {
-        ClientSessionV3 {
+impl ClientSession {
+    pub fn new(session_id: String, protocol_level: MqttProtocolLevel, sender: mpsc::Sender<HandleEvent>) -> ClientSession {
+        ClientSession {
             session_id,
+            protocol_level,
             sender,
         }
     }
@@ -188,7 +200,7 @@ impl MqttSession for ServerSession {
     }
 
     async fn send(&self, msg: Vec<u8>) {
-        if let Err(e) = self.sender.send(HandleEvent::OutputEvent(msg)).await {
+        if let Err(e) = self.sender.send(HandleEvent::OutputEvent(Response(msg, self.protocol_level.unwrap()))).await {
             println!("failed to send message; err = {:?}", e);
         }
     }

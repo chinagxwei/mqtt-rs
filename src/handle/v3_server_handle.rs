@@ -89,7 +89,7 @@ impl ServerExecute for ServerHandler {
                     SUBSCRIPT.exit(self.session.get_client_id()).await;
                     Some(ReturnKind::Exit)
                 }
-                HandleEvent::OutputEvent(data) => Some(ReturnKind::Response(data))
+                HandleEvent::OutputEvent(data) => Some(ReturnKind::Response(data.0))
             },
             _ => None
         };
