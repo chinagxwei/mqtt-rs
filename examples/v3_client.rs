@@ -1,9 +1,9 @@
 use std::net::{Ipv4Addr, SocketAddrV4, SocketAddr};
 use std::str::FromStr;
-use mqtt_demo::executor::v3_client::MqttClient;
-use mqtt_demo::message::MqttMessageKind;
-use mqtt_demo::session::ClientSessionV3;
-use mqtt_demo::tools::config::ConfigBuilder;
+use mqtt::executor::v3_client::MqttClient;
+use mqtt::message::MqttMessageKind;
+use mqtt::session::ClientSessionV3;
+use mqtt::tools::config::ConfigBuilder;
 
 #[tokio::main]
 async fn main() {
