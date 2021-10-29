@@ -6,7 +6,7 @@ use crate::executor::ReturnKind;
 use crate::handle::{ClientExecute, HandleEvent, ServerExecute};
 use crate::message::{MqttMessageKind, BaseMessage};
 use crate::message::v3::MqttMessageV3;
-use crate::session::ClientSessionV3;
+use crate::session::{ClientSessionV3, MqttSession};
 
 pub struct ClientHandleV3 {
     session: ClientSessionV3,
@@ -26,9 +26,7 @@ impl ClientHandleV3 {
     }
 
     pub async fn send_message(&self, msg: HandleEvent) {
-        if let Err(e) = self.session.send_event(msg).await {
-            println!("failed to send message; err = {:?}", e);
-        }
+        self.session.send_event(msg).await
     }
 }
 

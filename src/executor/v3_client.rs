@@ -86,7 +86,7 @@ impl<F, Fut> MqttClient<F, Fut>
     fn init_handle(&mut self) -> ClientHandleV3 {
         let (sender, receiver) = mpsc::channel(512);
         self.sender = Some(sender.clone());
-        ClientHandleV3::new(ClientSessionV3::new(sender), receiver)
+        ClientHandleV3::new(ClientSessionV3::new(self.config.client_id().clone(), sender), receiver)
     }
 
     // fn tls_connector(&self) -> Option<TlsConnector> {
@@ -126,7 +126,7 @@ impl<F, Fut> MqttClient<F, Fut>
     //     }
     // }
 
-    pub async fn connect(&mut self,) -> Option<mpsc::Receiver<String>> {
+    pub async fn connect(&mut self) -> Option<mpsc::Receiver<String>> {
         if self.handle.is_none() { return None; }
         let callback = **self.handle.as_ref().unwrap();
         let stream = self.init().await;
@@ -149,7 +149,9 @@ impl<F, Fut> Drop for MqttClient<F, Fut>
         let sender = self.sender.clone();
         tokio::spawn(async move {
             if let Some(sender) = sender.as_ref() {
-                sender.send(HandleEvent::OutputEvent(MqttMessageV3::disconnect().unwrap())).await;
+                if let Err(e) = sender.send(HandleEvent::ExitEvent(true)).await {
+                    println!("failed to send subscribe message; err = {:?}", e);
+                }
             }
         });
     }
@@ -186,7 +188,13 @@ async fn run<S, F, Fut>(mut stream: S, callback: F, sender: Option<mpsc::Sender<
                         println!("failed to write to socket; err = {:?}", e);
                     }
                 }
-                ReturnKind::Exit => break
+                ReturnKind::Exit => {
+                    let msg = MqttMessageV3::disconnect().unwrap();
+                    if let Err(e) = stream.write_all(msg.as_slice()).await {
+                        println!("failed to write to socket; err = {:?}", e);
+                    }
+                    break;
+                }
             }
         }
     }

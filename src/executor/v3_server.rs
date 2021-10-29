@@ -56,12 +56,12 @@ impl<F, Fut> MqttServer<F, Fut>
         if self.handle.is_none() { return; }
         if let Some(acceptor) = self.acceptor() {
             let listener: TcpListener = TcpListener::bind(self.addr).await.expect("listener error");
-            while let Ok((stream, _)) = listener.accept().await {
+            while let Ok((stream, addr)) = listener.accept().await {
                 let handle_message = **self.handle.as_ref().unwrap();
                 let acceptor = acceptor.clone();
                 let stream = acceptor.accept(stream).await.expect("");
                 tokio::spawn(async move {
-                    run(stream, handle_message).await;
+                    run(stream, addr, handle_message).await;
                 });
             }
         }
@@ -70,16 +70,16 @@ impl<F, Fut> MqttServer<F, Fut>
     pub async fn start(&self) {
         if self.handle.is_none() { return; }
         let listener: TcpListener = TcpListener::bind(self.addr).await.expect("listener error");
-        while let Ok((stream, _)) = listener.accept().await {
+        while let Ok((stream, addr)) = listener.accept().await {
             let handle_message = **self.handle.as_ref().unwrap();
             tokio::spawn(async move {
-                run(stream, handle_message).await;
+                run(stream, addr, handle_message).await;
             });
         }
     }
 }
 
-async fn run<S, F, Fut>(mut stream: S, callback: F)
+async fn run<S, F, Fut>(mut stream: S, addr: SocketAddr, callback: F)
     where
         F: Fn(ServerSessionV3, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
         Fut: Future<Output=()> + Send,
@@ -87,6 +87,7 @@ async fn run<S, F, Fut>(mut stream: S, callback: F)
 {
     let mut buf = [0; 1024];
     let mut handle = ServerHandler::new();
+    println!("[{}]: connect!", addr.to_string());
     loop {
         let res = tokio::select! {
             Ok(n) = stream.read(&mut buf) => {
@@ -107,4 +108,5 @@ async fn run<S, F, Fut>(mut stream: S, callback: F)
             }
         }
     }
+    println!("[{}]: disconnect!", addr.to_string());
 }

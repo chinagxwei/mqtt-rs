@@ -3,7 +3,7 @@ use tokio::sync::mpsc;
 use async_trait::async_trait;
 use crate::handle::{HandleEvent, ServerExecute};
 use crate::message::{MqttMessageKind, BaseMessage};
-use crate::session::ServerSessionV3;
+use crate::session::{MqttSession, ServerSessionV3};
 use crate::{SUBSCRIPT, MESSAGE_CONTAINER};
 use crate::container::MessageFrame;
 use crate::executor::ReturnKind;
@@ -32,9 +32,7 @@ impl ServerHandler {
     }
 
     pub async fn send_message(&self, msg: HandleEvent) {
-        if let Err(e) = self.session.send_event(msg).await {
-            println!("failed to send message; err = {:?}", e);
-        }
+        self.session.send_event(msg).await;
     }
 }
 

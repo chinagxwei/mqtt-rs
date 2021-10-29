@@ -6,44 +6,67 @@ use async_trait::async_trait;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::SendError;
 use crate::handle::HandleEvent;
-use crate::message::entity::PublishMessage;
+use crate::message::entity::{PublishMessage, SubscribeMessage};
+use crate::message::v3::MqttMessageV3;
 use crate::SUBSCRIPT;
 
 #[async_trait]
 pub trait MqttSession: Clone {
+    fn session_id(&self) -> &String;
     async fn publish(&self, msg: &PublishMessage);
     async fn subscribe(&self, topic: &String);
     async fn exit(&self);
     async fn send(&self, msg: Vec<u8>);
+    async fn send_event(&self, event: HandleEvent);
 }
 
 
 #[derive(Clone)]
 pub struct ClientSessionV3 {
+    session_id: String,
     sender: mpsc::Sender<HandleEvent>,
-}
-
-impl ClientSessionV3 {
-    pub async fn send_event(&self, event: HandleEvent) -> Result<(), SendError<HandleEvent>> {
-        self.sender.send(event).await
-    }
 }
 
 #[async_trait]
 impl MqttSession for ClientSessionV3 {
-    async fn publish(&self, msg: &PublishMessage) {}
+    fn session_id(&self) -> &String {
+        &self.session_id
+    }
 
-    async fn subscribe(&self, topic: &String) {}
+    async fn publish(&self, msg: &PublishMessage) {
+        let msg = MqttMessageV3::Publish(msg.clone()).to_vec().unwrap();
+        if let Err(e) = self.sender.send(HandleEvent::OutputEvent(msg)).await {
+            println!("failed to send subscribe message; err = {:?}", e);
+        }
+    }
 
-    async fn exit(&self) {}
+    async fn subscribe(&self, topic: &String) {
+        let msg = MqttMessageV3::Subscribe(SubscribeMessage::new(0, topic.clone(), MqttQos::Qos1)).to_vec().unwrap();
+        if let Err(e) = self.sender.send(HandleEvent::OutputEvent(msg)).await {
+            println!("failed to send subscribe message; err = {:?}", e);
+        }
+    }
 
-    async fn send(&self, msg: Vec<u8>) {}
+    async fn exit(&self) {
+        if let Err(e) = self.sender.send(HandleEvent::ExitEvent(true)).await {
+            println!("failed to send exit message; err = {:?}", e);
+        }
+    }
+
+    async fn send(&self, msg: Vec<u8>) {
+        self.sender.send(HandleEvent::OutputEvent(msg));
+    }
+
+    async fn send_event(&self, event: HandleEvent) {
+        self.sender.send(event).await;
+    }
 }
 
 impl ClientSessionV3 {
-    pub fn new(sender: mpsc::Sender<HandleEvent>) -> ClientSessionV3 {
+    pub fn new(session_id: String, sender: mpsc::Sender<HandleEvent>) -> ClientSessionV3 {
         ClientSessionV3 {
-            sender
+            session_id,
+            sender,
         }
     }
 }
@@ -131,14 +154,14 @@ impl ServerSessionV3 {
             _ => None
         };
     }
-
-    pub async fn send_event(&self, event: HandleEvent) -> Result<(), SendError<HandleEvent>> {
-        self.sender.send(event).await
-    }
 }
 
 #[async_trait]
 impl MqttSession for ServerSessionV3 {
+    fn session_id(&self) -> &String {
+        &self.client_id.as_ref().unwrap().0
+    }
+
     async fn publish(&self, msg: &PublishMessage) {
         let topic_msg = TopicMessage::Content(self.get_client_id().to_owned(), msg.clone());
         println!("topic: {:?}", topic_msg);
@@ -159,10 +182,20 @@ impl MqttSession for ServerSessionV3 {
     }
 
     async fn exit(&self) {
-        self.sender.send(HandleEvent::ExitEvent(true)).await;
+        if let Err(e) = self.sender.send(HandleEvent::ExitEvent(true)).await {
+            println!("failed to send exit message; err = {:?}", e);
+        }
     }
 
     async fn send(&self, msg: Vec<u8>) {
-        self.sender.send(HandleEvent::OutputEvent(msg)).await;
+        if let Err(e) = self.sender.send(HandleEvent::OutputEvent(msg)).await {
+            println!("failed to send message; err = {:?}", e);
+        }
+    }
+
+    async fn send_event(&self, event: HandleEvent) {
+        if let Err(e) = self.sender.send(event).await {
+            println!("failed to send event message; err = {:?}", e);
+        }
     }
 }
