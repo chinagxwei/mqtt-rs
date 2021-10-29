@@ -4,7 +4,7 @@ use mqtt_rs::executor::v3_server::MqttServer;
 use mqtt_rs::message::entity::{ConnackMessage, DisconnectMessage, PubackMessage, PubrecMessage, UnsubackMessage, SubackMessage, PubrelMessage, PubcompMessage, PingrespMessage};
 use mqtt_rs::message::MqttMessageKind;
 use mqtt_rs::message::v3::MqttMessageV3;
-use mqtt_rs::session::{MqttSession, ServerSessionV3};
+use mqtt_rs::session::{MqttSession, ServerSession};
 use mqtt_rs::tools::protocol::MqttQos;
 
 #[tokio::main]
@@ -20,7 +20,7 @@ async fn main() {
         .await;
 }
 
-pub async fn handle_v3_message(session: ServerSessionV3, v3_kind: Option<MqttMessageKind>) {
+pub async fn handle_v3_message(session: ServerSession, v3_kind: Option<MqttMessageKind>) {
     if let Some(v3) = v3_kind {
         match v3 {
             MqttMessageKind::RequestV3(ref msg) => {
@@ -45,7 +45,7 @@ pub async fn handle_v3_message(session: ServerSessionV3, v3_kind: Option<MqttMes
     }
 }
 
-async fn handle_v3(session: &ServerSessionV3, kind: &MqttMessageV3) -> Option<MqttMessageV3> {
+async fn handle_v3(session: &ServerSession, kind: &MqttMessageV3) -> Option<MqttMessageV3> {
     match kind {
         MqttMessageV3::Connect(_) => {
             return Some(MqttMessageV3::Connack(ConnackMessage::default()));

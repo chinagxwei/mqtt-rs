@@ -5,7 +5,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio_rustls::rustls;
 use crate::message::MqttMessageKind;
-use crate::session::ServerSessionV3;
+use crate::session::ServerSession;
 use crate::tools::tls::{load_certs, load_keys};
 use tokio_rustls::TlsAcceptor;
 use crate::executor::{MqttServerOption, ReturnKind};
@@ -14,7 +14,7 @@ use crate::handle::v3_server_handle::ServerHandler;
 
 pub struct MqttServer<F, Fut>
     where
-        F: Fn(ServerSessionV3, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
+        F: Fn(ServerSession, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
         Fut: Future<Output=()> + Send,
 {
     addr: SocketAddr,
@@ -24,7 +24,7 @@ pub struct MqttServer<F, Fut>
 
 impl<F, Fut> MqttServer<F, Fut>
     where
-        F: Fn(ServerSessionV3, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
+        F: Fn(ServerSession, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
         Fut: Future<Output=()> + Send,
 {
     pub fn new(addr: SocketAddr) -> MqttServer<F, Fut> {
@@ -81,7 +81,7 @@ impl<F, Fut> MqttServer<F, Fut>
 
 async fn run<S, F, Fut>(mut stream: S, addr: SocketAddr, callback: F)
     where
-        F: Fn(ServerSessionV3, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
+        F: Fn(ServerSession, Option<MqttMessageKind>) -> Fut + Copy + Clone + Send + Sync + 'static,
         Fut: Future<Output=()> + Send,
         S: AsyncReadExt + AsyncWriteExt + Unpin
 {

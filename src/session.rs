@@ -72,7 +72,7 @@ impl ClientSessionV3 {
 }
 
 #[derive(Clone)]
-pub struct ServerSessionV3 {
+pub struct ServerSession {
     sender: mpsc::Sender<HandleEvent>,
     pub(crate) clean_session: Option<MqttCleanSession>,
     client_id: Option<ClientID>,
@@ -85,9 +85,9 @@ pub struct ServerSessionV3 {
     will_message: Option<String>,
 }
 
-impl ServerSessionV3 {
-    pub fn new(sender: mpsc::Sender<HandleEvent>) -> ServerSessionV3 {
-        ServerSessionV3 {
+impl ServerSession {
+    pub fn new(sender: mpsc::Sender<HandleEvent>) -> ServerSession {
+        ServerSession {
             client_id: None,
             protocol_name: None,
             protocol_level: None,
@@ -157,7 +157,7 @@ impl ServerSessionV3 {
 }
 
 #[async_trait]
-impl MqttSession for ServerSessionV3 {
+impl MqttSession for ServerSession {
     fn session_id(&self) -> &String {
         &self.client_id.as_ref().unwrap().0
     }

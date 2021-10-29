@@ -3,7 +3,7 @@ use tokio::sync::mpsc;
 use async_trait::async_trait;
 use crate::handle::{HandleEvent, ServerExecute};
 use crate::message::{MqttMessageKind, BaseMessage};
-use crate::session::{MqttSession, ServerSessionV3};
+use crate::session::{MqttSession, ServerSession};
 use crate::{SUBSCRIPT, MESSAGE_CONTAINER};
 use crate::container::MessageFrame;
 use crate::executor::ReturnKind;
@@ -14,7 +14,7 @@ use crate::subscript::TopicMessage::Content;
 use crate::tools::protocol::{MqttCleanSession, MqttQos};
 
 pub struct ServerHandler {
-    session: ServerSessionV3,
+    session: ServerSession,
     receiver: mpsc::Receiver<HandleEvent>,
 }
 
@@ -22,12 +22,12 @@ impl ServerHandler {
     pub fn new() -> ServerHandler {
         let (sender, receiver) = mpsc::channel(512);
         ServerHandler {
-            session: ServerSessionV3::new(sender),
+            session: ServerSession::new(sender),
             receiver,
         }
     }
 
-    pub fn session(&self) -> &ServerSessionV3 {
+    pub fn session(&self) -> &ServerSession {
         &self.session
     }
 
@@ -38,7 +38,7 @@ impl ServerHandler {
 
 #[async_trait]
 impl ServerExecute for ServerHandler {
-    type Ses = ServerSessionV3;
+    type Ses = ServerSession;
 
     async fn execute<F, Fut>(&mut self, f: F) -> Option<ReturnKind>
         where
