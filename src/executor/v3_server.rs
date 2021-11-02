@@ -9,8 +9,7 @@ use crate::session::ServerSession;
 use crate::tools::tls::{load_certs, load_keys};
 use tokio_rustls::TlsAcceptor;
 use crate::executor::{MqttServerOption, ReturnKind};
-use crate::handle::{HandleEvent, ServerExecute};
-use crate::handle::v3_server_handle::ServerHandler;
+use crate::handle::{HandleEvent, ServerExecute, ServerHandler};
 
 pub struct MqttServer<F, Fut>
     where

@@ -1,6 +1,6 @@
-use crate::message::{MqttMessageType, MqttMessageVersion};
+use crate::message::{MqttMessageType, MqttProtocolLevelInfo};
 use crate::packet::{v5_packet};
-use crate::message::entity::{AuthMessage, CommonPayloadMessage, ConnackMessage, ConnectMessage, DisconnectMessage, PingreqMessage, PingrespMessage, PubackMessage, PubcompMessage, PublishMessage, PubrecMessage, PubrelMessage, SubackMessage, SubscribeMessage, UnsubackMessage, UnsubscribeMessage};
+use crate::message::entity::{AuthMessage, ConnackMessage, ConnectMessage, DisconnectMessage, PingreqMessage, PingrespMessage, PubackMessage, PubcompMessage, PublishMessage, PubrecMessage, PubrelMessage, SubackMessage, SubscribeMessage, UnsubackMessage, UnsubscribeMessage};
 use crate::tools::pack_tool::pack_header;
 use crate::tools::protocol::MqttProtocolLevel;
 
@@ -108,8 +108,8 @@ impl MqttMessageV5 {
     }
 }
 
-impl MqttMessageVersion for MqttMessageV5 {
-    fn version(&self) -> Option<MqttProtocolLevel> {
+impl MqttProtocolLevelInfo for MqttMessageV5 {
+    fn protocol_level(&self) -> Option<MqttProtocolLevel> {
         match self {
             MqttMessageV5::Connect(msg) => Some(msg.protocol_level),
             MqttMessageV5::Connack(msg) => msg.protocol_level,
@@ -126,6 +126,26 @@ impl MqttMessageVersion for MqttMessageV5 {
             MqttMessageV5::Pingresp(msg) => msg.protocol_level,
             MqttMessageV5::Disconnect(msg) => msg.protocol_level,
             MqttMessageV5::Auth(msg) => msg.protocol_level,
+        }
+    }
+
+    fn set_protocol_level(&mut self, level: MqttProtocolLevel) {
+        match self {
+            MqttMessageV5::Connect(msg) => msg.protocol_level = level,
+            MqttMessageV5::Connack(msg) => msg.protocol_level = Some(level),
+            MqttMessageV5::Publish(msg) => msg.protocol_level = Some(level),
+            MqttMessageV5::Puback(msg) => msg.protocol_level = Some(level),
+            MqttMessageV5::Pubrec(msg) => msg.protocol_level = Some(level),
+            MqttMessageV5::Pubrel(msg) => msg.protocol_level = Some(level),
+            MqttMessageV5::Pubcomp(msg) => msg.protocol_level = Some(level),
+            MqttMessageV5::Subscribe(msg) => msg.protocol_level = Some(level),
+            MqttMessageV5::Suback(msg) => msg.protocol_level = Some(level),
+            MqttMessageV5::Unsubscribe(msg) => msg.protocol_level = Some(level),
+            MqttMessageV5::Unsuback(msg) => msg.protocol_level = Some(level),
+            MqttMessageV5::Pingreq(msg) => msg.protocol_level = Some(level),
+            MqttMessageV5::Pingresp(msg) => msg.protocol_level = Some(level),
+            MqttMessageV5::Disconnect(msg) => msg.protocol_level = Some(level),
+            MqttMessageV5::Auth(msg) => msg.protocol_level = Some(level),
         }
     }
 }

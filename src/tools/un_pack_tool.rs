@@ -91,7 +91,8 @@ pub fn get_connect_payload_data(protocol_level: MqttProtocolLevel, data: &[u8], 
 ///
 /// 获取可变报文头数据
 ///
-pub fn get_connect_variable_header(data: &[u8]) -> (VariableHeader, &[u8]) {
+pub fn get_connect_variable_header(message_bytes: &[u8]) -> (VariableHeader, &[u8]) {
+    let data = message_bytes.get(2..).unwrap();
     let slice = get_remaining_data(data);
     let protocol_name = Option::from(String::from_utf8_lossy(slice).into_owned());
     let clean_session = (data[7] >> 1) & 1;

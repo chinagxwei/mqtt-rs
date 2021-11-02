@@ -21,11 +21,10 @@ pub trait MqttSession: Clone {
     async fn send_event(&self, event: HandleEvent);
 }
 
-
 #[derive(Clone)]
 pub struct ClientSession {
     session_id: String,
-    protocol_level: MqttProtocolLevel,
+    pub protocol_level: MqttProtocolLevel,
     sender: mpsc::Sender<HandleEvent>,
 }
 
@@ -126,9 +125,9 @@ impl ServerSession {
         self.client_id.as_ref().unwrap()
     }
 
-    pub fn init_protocol(&mut self, protocol_name: String, protocol_level: MqttProtocolLevel) {
-        self.protocol_name = Some(protocol_name);
-        self.protocol_level = Some(protocol_level);
+    pub fn init_protocol(&mut self, protocol_name: Option<String>, protocol_level: Option<MqttProtocolLevel>) {
+        self.protocol_name = protocol_name;
+        self.protocol_level = protocol_level;
     }
 
     pub fn is_will_flag(&self) -> bool {

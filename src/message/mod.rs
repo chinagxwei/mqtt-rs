@@ -74,6 +74,24 @@ impl MqttMessageKind {
     }
 }
 
+impl MqttProtocolLevelInfo for MqttMessageKind {
+    fn protocol_level(&self) -> Option<MqttProtocolLevel> {
+        match self {
+            MqttMessageKind::RequestV3(msg) => msg.protocol_level(),
+            MqttMessageKind::RequestV5(msg) => msg.protocol_level(),
+            _ => None
+        }
+    }
+
+    fn set_protocol_level(&mut self, level: MqttProtocolLevel) {
+        match self {
+            MqttMessageKind::RequestV3(msg) => msg.set_protocol_level(level),
+            MqttMessageKind::RequestV5(msg) => msg.set_protocol_level(level),
+            _ => {}
+        }
+    }
+}
+
 impl MqttMessageKind {
     pub fn to_v3_request(base_msg: BaseMessage) -> Option<MqttMessageKind> {
         match base_msg.get_message_type() {
@@ -90,7 +108,7 @@ impl MqttMessageKind {
             TypeKind::UNSUBACK => { Some(Self::RequestV3(v3_unpacket::unsuback(base_msg))) }
             TypeKind::PINGREQ => { Some(Self::RequestV3(MqttMessageV3::Pingreq(PingreqMessage::from(base_msg)))) }
             TypeKind::PINGRESP => { Some(Self::RequestV3(MqttMessageV3::Pingresp(PingrespMessage::from(base_msg)))) }
-            TypeKind::DISCONNECT => { Some(Self::RequestV3(MqttMessageV3::Disconnect((DisconnectMessage::default())))) }
+            TypeKind::DISCONNECT => { Some(Self::RequestV3(MqttMessageV3::Disconnect(DisconnectMessage::default()))) }
             _ => { None }
         }
     }
@@ -122,14 +140,14 @@ pub trait MqttMessageType {
     fn get_message_type(&self) -> TypeKind;
 }
 
-pub trait MqttMessageVersion {
-    fn version(&self) -> Option<MqttProtocolLevel>;
-}
-
 pub trait MqttBytesMessage: MqttMessageType {
     fn to_vec(&self) -> Vec<u8>;
 }
 
+pub trait MqttProtocolLevelInfo {
+    fn protocol_level(&self) -> Option<MqttProtocolLevel>;
+    fn set_protocol_level(&mut self, level: MqttProtocolLevel);
+}
 
 #[derive(Debug)]
 pub struct BaseMessage {

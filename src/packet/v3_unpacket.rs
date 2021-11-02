@@ -6,8 +6,7 @@ use crate::message::entity::{ConnackMessage, ConnectMessage, PubackMessage, Pubc
 use crate::message::v3::MqttMessageV3;
 
 pub fn connect(base: BaseMessage) -> MqttMessageV3 {
-    let message_bytes = base.bytes.get(2..).unwrap();
-    let (variable_header, last_data) = get_connect_variable_header(message_bytes);
+    let (variable_header, last_data) = get_connect_variable_header(base.bytes.as_slice());
     let payload = get_connect_payload_data(
         variable_header.protocol_level.unwrap(),
         last_data,

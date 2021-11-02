@@ -3,10 +3,12 @@ use std::option::Option::Some;
 use tokio::sync::mpsc;
 use async_trait::async_trait;
 use crate::executor::ReturnKind;
-use crate::handle::{ClientExecute, HandleEvent, ServerExecute};
+use crate::handle::{ClientExecute, HandleEvent};
 use crate::message::{MqttMessageKind, BaseMessage};
 use crate::message::v3::MqttMessageV3;
+use crate::message::v5::MqttMessageV5;
 use crate::session::{ClientSession, MqttSession};
+use crate::tools::protocol::MqttProtocolLevel;
 
 pub struct ClientHandleV3 {
     session: ClientSession,
@@ -45,13 +47,17 @@ impl ClientExecute for ClientHandleV3 {
                     HandleEvent::InputEvent(data) => {
                         println!("client input: {:?}", data);
                         let base_msg = BaseMessage::from(data);
-                        let v3_request = MqttMessageKind::to_v3_request(base_msg);
-                        if let Some(send) = sender{
-                            if let Some(MqttMessageKind::RequestV3(MqttMessageV3::Publish(msg))) = v3_request.as_ref() {
-                                send.send(msg.msg_body.clone());
+                        let request = self.request(base_msg);
+                        if let Some(send) = sender {
+                            if let Some(kind) = request.as_ref() {
+                                match kind {
+                                    MqttMessageKind::RequestV3(MqttMessageV3::Publish(msg)) => { send.send(msg.msg_body.clone()).await; }
+                                    MqttMessageKind::RequestV5(MqttMessageV5::Publish(msg)) => { send.send(msg.msg_body.clone()).await; }
+                                    _ => {}
+                                }
                             }
-                        }
-                        f(self.session.clone(), v3_request).await;
+                        };
+                        f(self.session.clone(), request).await;
                         None
                     }
                     HandleEvent::OutputEvent(data) => {
@@ -65,5 +71,19 @@ impl ClientExecute for ClientHandleV3 {
             }
             _ => None,
         };
+    }
+}
+
+impl ClientHandleV3 {
+    fn request(&self, base_msg: BaseMessage) -> Option<MqttMessageKind> {
+        match self.session.protocol_level {
+            MqttProtocolLevel::Level3_1_1 => {
+                MqttMessageKind::to_v3_request(base_msg)
+            }
+            MqttProtocolLevel::Level5 => {
+                MqttMessageKind::to_v5_request(base_msg)
+            }
+            _ => None
+        }
     }
 }

@@ -14,7 +14,7 @@ use crate::executor::{MqttClientOption, ReturnKind};
 use crate::handle::{HandleEvent, ClientExecute, Response};
 use crate::handle::v3_client_handle::ClientHandleV3;
 use crate::message::MqttMessageKind;
-use crate::message::entity::{ConnectMessage, DisconnectMessage, PingreqMessage, PublishMessage, SubscribeMessage, UnsubscribeMessage};
+use crate::message::entity::{ConnectMessage, PublishMessage, SubscribeMessage, UnsubscribeMessage};
 use crate::message::v3::MqttMessageV3;
 use crate::session::ClientSession;
 use crate::tools::config::Config;
